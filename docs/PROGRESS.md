@@ -1,4 +1,32 @@
-# Progresso — entrega 07: objetos essenciais
+# Progresso — entrega 08: Classe-D e necessidades básicas
+
+## Base e implementação
+
+- Base confirmada: `feat/essential-objects`, commit `34f038cb11b6238ef6a3408ab96313f018c92d41`; `AGENTS.md` lido antes de editar. Branch `feat/classd-basic-needs`, criada diretamente dessa base, sem merge na `main`.
+- Um único Classe-D 001 (`classd-001`), quadrado laranja, separado do engenheiro dourado em `(5, 7)`. Seleção exclusiva por clique e seção População/Alertas no topo; nome, estado, destino, fome, descanso, necessidade, impedimento e progresso de uso. Rota e destino laranja no mapa; controles de engenharia preservados por rolagem em 1280×720.
+- Fome/descanso 0–100, inicial 100, limiar 35, decaimento 0,12/0,08 ponto por segundo simulado. Velocidade 96 px/s, escala de tempo 1, refeição 8 s e descanso 12 s; parâmetros centralizados em `settings.gd`. Prioriza a menor necessidade urgente; se inacessível, pode atender a outra urgente mantendo o alerta.
+- Reutiliza navegação ortogonal e pontos de interação da grade. Busca objeto disponível com ponto livre acessível, reserva por identificador durante viagem/uso e só recupera no centro exato do ponto adjacente, sem ocupar o objeto. Recuperação linear até 100 ao longo da duração; a outra necessidade continua decaindo. Permanece imóvel durante uso e só depois busca nova ação.
+- Reservas em índice simples célula → identificador. Conclusão, cancelamento, bloqueio, remoção, reinício e substituição do cenário na carga liberam reservas anteriores. Carga reconstrói só a reserva da ação validada, sem sinais intermediários. Alterações de paredes/portas/objetos invalidam rotas afetadas; termina o trecho seguro ou retorna pelo mesmo segmento sem teleporte. Engenharia protege as duas pontas ocupadas pelo Classe-D e não fecha portas sobre pessoas.
+- Alertas exatos de falta de cama/distribuidor, acompanhados de causa identificável: inexistente, ocupado/reservado, ponto ocupado, porta fechada ou rota bloqueada. Reavaliação ao mudar grade, ocupação do engenheiro ou disponibilidade; somem ao resolver. Diagnóstico de porta usa cópia da grade, sem mutação da grade real.
+- Save esquema 4 preserva identidade, necessidades, estado, posição exata, rota/destino, reserva e progresso/valor inicial do uso. Saves válidos 1, 2 e 3 migram com um Classe-D inicial em célula livre separada, incluindo alternativa à origem bloqueada. Repetir carga substitui estado sem duplicar pessoa, reserva ou recuperação.
+
+## Validação executada
+
+- `bash tools/validate.sh`: **1.414 verificações, 0 falhas**, com as 1.089 anteriores preservadas; importação e cena principal por 120 frames concluídas sem erros. `git diff --check` passou.
+- `tests/classd_tests.gd` exercita atendimento de descanso/fome, prioridade, decaimento e ociosidade; recuperação só após chegada; uso gradual imóvel; reservas de outro identificador; falta dos dois recursos; único ponto ocupado; sala inacessível; porta fechada, abertura, fechamento em rota e retomada; mudanças de parede/objeto sem teleporte; cancelamento, remoção durante uso e reinício.
+- Save/load executado em arquivo isolado durante deslocamento até Cama e durante uso de Cama e Distribuidor. Posição, rota, necessidades e progresso restaurados exatamente; carga repetida conserva um único NPC e uma única reserva, limpa reserva anterior espúria, não emite sinal intermediário nem soma recuperação. Migração de três esquemas e rejeição atômica de identidade, necessidade, posição, reserva/progresso e população duplicada inválidos.
+- A primeira execução dos testes novos encontrou atribuição de array sem tipo na rota de cancelamento. Corrigida com operações no array tipado; os cenários de porta, parede, objeto e cancelamento passaram na repetição completa.
+- Verificação gráfica **real**, com Xvfb `:100`, tela 1280×720, OpenGL 4.5 Compatibility, Mesa 25.0.7 llvmpipe (LLVM 19.1.7). Xvfb foi baixado do espelho Debian e extraído temporariamente em `/tmp/site-director-xvfb/`; Mesa/ImageMagick já estavam disponíveis. Não foi usado headless como validação gráfica.
+- Cinco PNGs 1280×720 produzidos após frames renderizados e inspecionados por ferramenta de visão: `15-classd-idle`, `16-classd-alert`, `17-classd-to-bed`, `18-classd-using`, `19-classd-panel`, em `docs/screenshots/`. Cama/Distribuidor são instalados pela fila do engenheiro no roteiro visual. Mapa inteiro, áreas/objetos, duas pessoas, rota/destino, uso e alertas legíveis; rolagem mantém ações e Salvar/Carregar acessíveis.
+- Reprodução: inicie Xvfb em `:100` com `-screen 0 1280x720x24 -nolisten tcp`; execute `DISPLAY=:100 LIBGL_ALWAYS_SOFTWARE=1 SITE_DIRECTOR_CAPTURE_CLASSD=1 SITE_DIRECTOR_CAPTURE_WIDTH=1280 SITE_DIRECTOR_CAPTURE_HEIGHT=720 bash tools/godot.sh --audio-driver Dummy --resolution 1280x720 --position 0,0 --script res://tools/visual_smoke.gd`.
+
+## Limites
+
+- Estados gráficos preparados programaticamente pelos sistemas reais; cliques/rolagem sintéticos passam pelo viewport nos testes. Interação humana, animação percebida e monitor/driver físico continuam pendentes.
+- Apenas um Classe-D e um engenheiro; reservas por identificador preparam exclusividade futura, sem sistema geral de população. Não há morte, fuga, motim, escolta, dinheiro, XP, turnos, experimentos ou pesquisa. Mesa/Assento preservam sua função atual de objeto físico.
+- Persistência manual e um slot. Configuração de tempo/necessidades é feita em `settings.gd`. Interromper uso conserva os pontos já recuperados, libera a reserva e descarta o progresso da ação interrompida; uma nova ação usa sua duração completa.
+
+# Histórico — entrega 07: objetos essenciais
 
 ## Base e implementação
 

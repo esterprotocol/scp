@@ -12,6 +12,7 @@ const DEMOLISH_OBJECT := "Demolir objeto"
 const UNSAFE_EXIT := "Construção bloquearia a saída do engenheiro"
 
 var grid: GridState
+var classd: ClassD
 var engineer: Engineer
 var blueprints: Dictionary = {}
 var object_blueprints: Dictionary = {} # Cell -> object type.
@@ -48,6 +49,8 @@ func target_reason(target: Vector2i, action: String = BUILD, check_occupation: b
 		return "Célula ocupada por parede, porta ou objeto."
 	if not grid.can_block_cell(target):
 		return "Obra removeria o último ponto de interação de um objeto."
+	if check_occupation and classd != null and classd.occupies(target):
+		return "Célula ocupada pelo Classe-D."
 	if check_occupation and engineer.occupies(target):
 		return "Célula ocupada pelo engenheiro."
 	return ""
@@ -179,6 +182,8 @@ func _choose_work_cell(target: Vector2i) -> Vector2i:
 	var best_length := 100000
 	for direction: Vector2i in GridNavigation.DIRECTIONS:
 		var candidate := target + direction
+		if classd != null and classd.occupies(candidate):
+			continue
 		var path := GridNavigation.find_path(grid, engineer.cell, candidate)
 		if not path.is_empty() and (tasks[target].action not in [BUILD, BUILD_OBJECT] or _safe_work_cell(target, candidate)) and path.size() < best_length:
 			best = candidate

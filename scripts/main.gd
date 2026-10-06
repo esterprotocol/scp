@@ -2,6 +2,7 @@ extends Node2D
 
 var grid := GridState.new()
 var engineer := Engineer.new()
+var classd := ClassD.new()
 var map_view := MapView.new()
 var camera := SiteCamera.new()
 var hud := SiteHUD.new()
@@ -23,6 +24,10 @@ func _ready() -> void:
 	add_child(map_view)
 	engineer.setup(grid)
 	add_child(engineer)
+	classd.setup(grid, engineer)
+	add_child(classd)
+	map_view.classd = classd
+	construction.classd = classd
 	construction.setup(grid, engineer)
 	add_child(construction)
 	map_view.construction = construction
@@ -45,13 +50,17 @@ func _ready() -> void:
 	hud.cancel_all_requested.connect(func() -> void: hud.show_message(construction.cancel_all()))
 	construction.changed.connect(_on_construction_changed)
 	engineer.changed.connect(_on_engineer_changed)
+	classd.changed.connect(_on_classd_changed)
+	classd.occupation_changed.connect(func() -> void: construction.dirty = true)
 	grid.changed.connect(_on_grid_changed)
+	grid.availability_changed.connect(func() -> void: hud.refresh_cell(grid, selected_cell))
 	reset_scenario()
 
 func reset_scenario() -> void:
 	construction.reset()
 	grid.reset()
 	engineer.reset()
+	classd.reset()
 	camera.reset()
 	selected_cell = Vector2i(-1, -1)
 	map_view.selected_cell = selected_cell
@@ -64,15 +73,21 @@ func reset_scenario() -> void:
 	hud.refresh_cell(grid, selected_cell)
 	hud.refresh(engineer)
 	hud.refresh_construction(construction)
+	_on_classd_changed()
 	hud.show_message("Selecione o engenheiro dourado para dar uma ordem.")
 
+func _on_classd_changed() -> void:
+	hud.refresh_population(classd)
+	hud.refresh_selection(engineer, classd)
+	classd.queue_redraw()
+
 func _on_engineer_changed() -> void:
-	hud.refresh(engineer)
+	hud.refresh_selection(engineer, classd)
 	if engineer.route.is_empty() and engineer.selected and not engineer.construction_busy:
 		hud.show_message("Engenheiro pronto. Clique direito para mover.")
 
 func _on_construction_changed() -> void:
-	hud.refresh(engineer)
+	hud.refresh_selection(engineer, classd)
 	hud.refresh_construction(construction)
 
 func _on_grid_changed() -> void:
@@ -140,8 +155,8 @@ func toggle_selected_door() -> void:
 		hud.show_message("Selecione uma porta existente.")
 		return
 	var open: bool = grid.doors[selected_cell]
-	if open and engineer.occupies(selected_cell):
-		hud.show_message("Não é possível fechar: engenheiro ocupa a porta.")
+	if open and (engineer.occupies(selected_cell) or classd.occupies(selected_cell)):
+		hud.show_message("Não é possível fechar: uma pessoa ocupa a porta.")
 		return
 	if grid.set_door_open(selected_cell, not open):
 		hud.show_message("Porta fechada." if open else "Porta aberta.")
@@ -198,7 +213,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			select_cell(cell)
-			if grid.doors.has(cell):
+			classd.set_selected(false)
+			if point.distance_to(classd.position) <= 15.0 and point.distance_to(classd.position) < point.distance_to(engineer.position):
+				engineer.set_selected(false)
+				classd.set_selected(true)
+				hud.show_message("Classe-D 001 selecionado. Necessidades atendidas automaticamente.")
+			elif grid.doors.has(cell):
 				engineer.set_selected(false)
 				hud.show_message("Porta aberta. Use Fechar porta." if grid.doors[cell] else "Porta fechada. Use Abrir porta.")
 			elif grid.objects.has(cell):

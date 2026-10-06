@@ -40,8 +40,15 @@ func run() -> void:
 		return
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
+	game.classd.set_process(false)
 	game.engineer.set_process(false)
 	game.construction.set_process(false)
+	if OS.get_environment("SITE_DIRECTOR_CAPTURE_CLASSD") == "1":
+		await capture_classd(game, width, height)
+		game.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_environment("SITE_DIRECTOR_CAPTURE_OBJECTS") == "1":
 		game.grid.set_area(Vector2i(6, 5), 1)
 		game.grid.set_area(Vector2i(6, 6), 1)
@@ -175,3 +182,62 @@ func run() -> void:
 	game.queue_free()
 	await process_frame
 	quit(0)
+
+func prepare_classd_objects(game: Node2D) -> void:
+	for y in range(6, 11):
+		for x in range(7, 10):
+			game.grid.set_area(Vector2i(x, y), 1 if y <= 7 else 2)
+	for entry in [{"cell": Vector2i(8, 7), "type": 1}, {"cell": Vector2i(8, 9), "type": 4}, {"cell": Vector2i(9, 9), "type": 2}, {"cell": Vector2i(9, 10), "type": 3}]:
+		game.construction.plan_object(entry.cell, entry.type)
+		game.construction.authorize()
+		game.construction._process(0.0)
+		game.engineer._process(10.0)
+		game.construction._process(0.0)
+		game.construction._process(GameSettings.OBJECT_INSTALL_SECONDS)
+	game.engineer.move_to(GameSettings.SPAWN)
+	game.engineer._process(10.0)
+	game.classd.set_selected(true)
+	game.hud.refresh_selection(game.engineer, game.classd)
+
+func capture_classd(game: Node2D, width: int, height: int) -> void:
+	prepare_classd_objects(game)
+	game.classd._process(0.0)
+	game.hud.show_message("Classe-D 001 ocioso. Cama e refeições instaladas pelo engenheiro.")
+	await shot("15-classd-idle", width, height)
+
+	game.reset_scenario()
+	game.classd.set_selected(true)
+	game.classd.hunger = 18.0
+	game.classd.rest = 12.0
+	game.classd._process(0.0)
+	game.hud.show_message("Necessidades urgentes: faltam cama e distribuidor de refeições acessíveis.")
+	await shot("16-classd-alert", width, height)
+
+	game.reset_scenario()
+	prepare_classd_objects(game)
+	game.classd.rest = 20.0
+	game.classd.hunger = 75.0
+	game.classd._process(0.3)
+	if game.classd.state != ClassD.MOVING or game.classd.reserved_object != Vector2i(8, 7):
+		printerr("Visual fixture failed: Classe-D must be moving to installed bed.")
+		quit(1)
+		return
+	game.hud.show_message("Descanso baixo: rota laranja até o ponto livre ao lado da cama.")
+	await shot("17-classd-to-bed", width, height)
+
+	while game.classd.state == ClassD.MOVING:
+		game.classd._process(0.05)
+	game.classd._process(3.0)
+	if game.classd.state != ClassD.USING or game.classd.position != game.grid.center(game.classd.destination):
+		printerr("Visual fixture failed: Classe-D must be using bed at its interaction point.")
+		quit(1)
+		return
+	game.select_cell(Vector2i(8, 7))
+	game.hud.show_message("Cama reservada por classd-001. Recuperação gradual, sem entrar na célula do objeto.")
+	await shot("18-classd-using", width, height)
+
+	var scroll: ScrollContainer = game.hud.get_child(0).get_child(0)
+	scroll.ensure_control_visible(game.hud.load_button)
+	scroll.scroll_vertical += 80
+	await shot("19-classd-panel", width, height)
+	print("720p controls: object=%s save=%s load=%s" % [game.hud.object_button.get_global_rect(), game.hud.save_button.get_global_rect(), game.hud.load_button.get_global_rect()])

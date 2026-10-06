@@ -2,7 +2,7 @@ class_name SaveSlot
 extends RefCounted
 
 const PATH := "user://site_director.json"
-const SCHEMA_VERSION := 3
+const SCHEMA_VERSION := 4
 const MAX_BYTES := 2 * 1024 * 1024
 
 static func coordinates(value: Vector2) -> Dictionary:
@@ -35,6 +35,7 @@ func capture(game: Node2D) -> Dictionary:
 	for cell: Vector2i in jobs.object_blueprints:
 		object_blueprints.append({"cell": coordinates(Vector2(cell)), "type": jobs.object_blueprints[cell]})
 	return {
+		"classd": capture_classd(game.classd),
 		"schema_version": SCHEMA_VERSION, "godot_version": GameSettings.GODOT_VERSION,
 		"walls": cells(game.grid.walls), "doors": doors, "areas": areas, "objects": objects,
 		"blueprints": cells(jobs.blueprints), "object_blueprints": object_blueprints, "tasks": queue,
@@ -84,7 +85,7 @@ func decode(data: Variant) -> Dictionary:
 	# Validate and normalize a detached snapshot. No live nodes are modified.
 	if not data is Dictionary:
 		return _invalid("o documento precisa ser um objeto JSON.")
-	if not _number(data.get("schema_version")) or float(data.schema_version) != floorf(float(data.schema_version)) or int(data.schema_version) not in [1, 2, SCHEMA_VERSION]:
+	if not _number(data.get("schema_version")) or float(data.schema_version) != floorf(float(data.schema_version)) or int(data.schema_version) not in [1, 2, 3, SCHEMA_VERSION]:
 		return _invalid("versão do esquema incompatível.")
 	if data.get("godot_version") != GameSettings.GODOT_VERSION:
 		return _invalid("versão do Godot incompatível.")
@@ -263,7 +264,12 @@ func decode(data: Variant) -> Dictionary:
 		return _invalid("tipo de área ou célula selecionada inválidos.")
 	if not _number(object_type) or float(object_type) != floorf(float(object_type)) or object_type < 1 or object_type >= GridState.OBJECT_NAMES.size():
 		return _invalid("tipo selecionado de objeto inválido.")
-	return {"state": {"walls": grid.walls, "doors": grid.doors, "areas": grid.areas, "objects": grid.objects,
+	var person := decode_classd(data.get("classd"), grid, int(data.schema_version), cell)
+	if person.has("error"):
+		return person
+	if saved_worker.selected and person.state.selected:
+		return _invalid("duas pessoas selecionadas.")
+	return {"state": {"classd": person.state, "walls": grid.walls, "doors": grid.doors, "areas": grid.areas, "objects": grid.objects,
 		"blueprints": planned, "object_blueprints": object_planned, "tasks": tasks, "active": active, "work_cell": work_cell, "dirty": data.dirty,
 		"cell": cell, "position": position, "destination": destination, "route": route, "worker": saved_worker,
 		"camera_position": camera_position, "zoom": float(camera.zoom), "tool": data.tool, "area_type": int(area_type), "object_type": int(object_type), "selected_cell": selected_cell}}
@@ -277,6 +283,8 @@ func apply(game: Node2D, state: Dictionary) -> void:
 	game.grid.doors = state.doors
 	game.grid.areas = state.areas
 	game.grid.objects = state.objects
+	game.grid.reservations.clear()
+	apply_classd(game.classd, state.classd)
 	jobs.blueprints = state.blueprints
 	jobs.object_blueprints = state.object_blueprints
 	jobs.tasks = state.tasks
@@ -310,7 +318,8 @@ func apply(game: Node2D, state: Dictionary) -> void:
 	game.select_cell(state.selected_cell)
 	worker.queue_redraw()
 	game.map_view.queue_redraw()
-	game.hud.refresh(worker)
+	game.hud.refresh_selection(worker, game.classd)
+	game.hud.refresh_population(game.classd)
 	game.hud.refresh_construction(jobs)
 
 func save_game(game: Node2D, path: String = PATH) -> String:
@@ -363,3 +372,105 @@ func load_game(game: Node2D, path: String = PATH) -> String:
 		return validated.error
 	apply(game, validated.state)
 	return "Cenário carregado com sucesso."
+
+func capture_classd(person: ClassD) -> Dictionary:
+	return {"id": ClassD.ID, "cell": coordinates(Vector2(person.cell)), "position": coordinates(person.position),
+		"destination": coordinates(Vector2(person.destination)), "route": cells(person.route), "selected": person.selected,
+		"hunger": person.hunger, "rest": person.rest, "state": person.state, "need": person.need,
+		"reserved_object": null if person.reserved_object == ClassD.NONE else coordinates(Vector2(person.reserved_object)),
+		"use_elapsed": person.use_elapsed, "use_initial": person.use_initial, "impediment": person.impediment,
+		"alerts": Array(person.alerts), "dirty": person.dirty}
+
+func decode_classd(raw: Variant, grid: GridState, version: int, worker_cell: Vector2i) -> Dictionary:
+	if version < 4:
+		var initial := ClassD.initial_cell(grid, worker_cell)
+		if initial == ClassD.NONE:
+			return _invalid("sem célula livre para migrar Classe-D.")
+		return {"state": {"cell": initial, "position": grid.center(initial), "destination": initial, "route": [],
+			"selected": false, "hunger": GameSettings.CLASSD_INITIAL_NEEDS, "rest": GameSettings.CLASSD_INITIAL_NEEDS,
+			"state": ClassD.IDLE, "need": "", "reserved_object": ClassD.NONE, "use_elapsed": 0.0, "use_initial": 0.0,
+			"impediment": "", "alerts": [], "dirty": true}}
+	if not raw is Dictionary or raw.get("id") != ClassD.ID:
+		return _invalid("identidade do Classe-D inválida.")
+	var cell = _point(raw.get("cell"), true)
+	var position = _point(raw.get("position"))
+	var destination = _point(raw.get("destination"), true)
+	var route = _cell_list(raw.get("route"), false)
+	if cell == null or position == null or destination == null or route == null or not grid.is_walkable(cell) or not grid.is_walkable(grid.to_cell(position)):
+		return _invalid("posição/rota do Classe-D inválida.")
+	for key in ["hunger", "rest", "use_elapsed", "use_initial"]:
+		if not _number(raw.get(key)) or raw[key] < 0 or raw[key] > 100:
+			return _invalid("necessidade/progresso do Classe-D inválido.")
+	if not raw.get("selected") is bool or not raw.get("dirty") is bool or raw.get("state") not in [ClassD.IDLE, ClassD.MOVING, ClassD.USING, ClassD.BLOCKED, ClassD.STOPPING] or raw.get("need") not in ["", "Fome", "Descanso"]:
+		return _invalid("estado do Classe-D inválido.")
+	if not raw.get("impediment") is String or raw.impediment.length() > 4096 or not raw.get("alerts") is Array or raw.alerts.size() > 2:
+		return _invalid("alertas do Classe-D inválidos.")
+	for alert in raw.alerts:
+		if not alert is String or alert.length() > 4096:
+			return _invalid("texto de alerta inválido.")
+	var previous: Vector2i = cell
+	for index in route.size():
+		var step: Vector2i = route[index] - previous
+		if not grid.is_walkable(route[index]) or (absi(step.x) + absi(step.y) != 1 and not (index == 0 and route[index] == cell)):
+			return _invalid("rota do Classe-D atravessa obstáculo ou corta quina.")
+		previous = route[index]
+	if route.is_empty():
+		if position != grid.center(cell) or destination != cell:
+			return _invalid("Classe-D parado fora do ponto correto.")
+	else:
+		var offset: Vector2 = position - grid.center(cell)
+		var segment: Vector2 = grid.center(route[0]) - grid.center(cell)
+		if destination != route[-1]:
+			return _invalid("destino do Classe-D diverge da rota.")
+		if segment == Vector2.ZERO:
+			if (offset.x != 0 and offset.y != 0) or offset.length() > GameSettings.CELL_SIZE:
+				return _invalid("retorno do Classe-D fora do segmento.")
+		elif absf(segment.cross(offset)) > 0.01 or offset.dot(segment) < 0 or offset.dot(segment) > segment.length_squared():
+			return _invalid("Classe-D fora do segmento ortogonal.")
+	if not raw.has("reserved_object"):
+		return _invalid("reserva do Classe-D ausente.")
+	var reserved = ClassD.NONE if raw.reserved_object == null else _point(raw.reserved_object, true)
+	if reserved == null:
+		return _invalid("reserva do Classe-D inválida.")
+	var active: bool = raw.state in [ClassD.MOVING, ClassD.USING]
+	if active:
+		var kind := 4 if raw.need == "Fome" else 1
+		if raw.need.is_empty() or grid.objects.get(reserved, 0) != kind or not grid.interaction_cells(reserved).has(destination):
+			return _invalid("objeto e ponto de interação do Classe-D inconsistentes.")
+	elif reserved != ClassD.NONE or raw.use_elapsed != 0 or raw.use_initial != 0 or not route.is_empty() and raw.state != ClassD.STOPPING:
+		return _invalid("Classe-D inativo com reserva/progresso/rota.")
+	if raw.state == ClassD.USING:
+		var duration := GameSettings.CLASSD_MEAL_SECONDS if raw.need == "Fome" else GameSettings.CLASSD_REST_SECONDS
+		var value: float = raw.hunger if raw.need == "Fome" else raw.rest
+		if not route.is_empty() or raw.use_elapsed >= duration or not is_equal_approx(value, lerpf(raw.use_initial, 100.0, raw.use_elapsed / duration)):
+			return _invalid("progresso de uso inconsistente.")
+	elif raw.use_elapsed != 0 or raw.use_initial != 0:
+		return _invalid("recuperação antes do uso.")
+	var normalized: Dictionary = raw.duplicate(true)
+	normalized.cell = cell
+	normalized.position = position
+	normalized.destination = destination
+	normalized.route = route
+	normalized.reserved_object = reserved
+	return {"state": normalized}
+
+func apply_classd(person: ClassD, state: Dictionary) -> void:
+	person.cell = state.cell
+	person.position = state.position
+	person.destination = state.destination
+	person.route.assign(state.route)
+	person.selected = state.selected
+	person.hunger = state.hunger
+	person.rest = state.rest
+	person.state = state.state
+	person.need = state.need
+	person.reserved_object = state.reserved_object
+	person.use_elapsed = state.use_elapsed
+	person.use_initial = state.use_initial
+	person.impediment = state.impediment
+	person.alerts = PackedStringArray(state.alerts)
+	person.dirty = state.dirty
+	if person.reserved_object != ClassD.NONE:
+		# Rebuild the transient index without intermediate simulation signals.
+		person.grid.reservations[person.reserved_object] = ClassD.ID
+	person.queue_redraw()

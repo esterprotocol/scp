@@ -16,6 +16,8 @@ signal authorize_requested
 signal cancel_active_requested
 signal cancel_all_requested
 
+var population_label: Label
+var alerts_label: Label
 var selection_label: Label
 var state_label: Label
 var destination_label: Label
@@ -69,7 +71,17 @@ func _ready() -> void:
 	var title := add_label(box, "SITE DIRECTOR")
 	title.add_theme_font_size_override("font_size", 23)
 	title.add_theme_color_override("font_color", Color("64e6b6"))
-	add_label(box, "03 / OBRAS\nConstrução e demolição")
+	add_label(box, "POPULAÇÃO · 1 Classe-D")
+	population_label = add_label(box, "")
+	population_label.custom_minimum_size.x = 220
+	population_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	population_label.add_theme_color_override("font_color", Color("ffb780"))
+	alerts_label = add_label(box, "Alertas: nenhum")
+	alerts_label.custom_minimum_size.x = 220
+	alerts_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	alerts_label.add_theme_color_override("font_color", Color("f2867f"))
+	box.add_child(HSeparator.new())
+	add_label(box, "ENGENHARIA")
 	select_button = add_button(box, "Selecionar", func() -> void: mode_requested.emit(false))
 	plan_button = add_button(box, "Planejar parede", func() -> void: mode_requested.emit(true))
 	demolish_button = add_button(box, "Demolir", func() -> void: demolish_requested.emit())
@@ -131,7 +143,7 @@ func _ready() -> void:
 	save_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(HSeparator.new())
-	var controls_label := add_label(box, "CONTROLES\nSelecionar: esquerdo escolhe engenheiro, porta ou objeto; direito move.\nPlanejar/Objeto: esquerdo marca; direito cancela obra.\nDemolir/Porta: esquerdo solicita; direito cancela tarefa.\nÁrea: escolha tipo e pinte com esquerdo.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint de parede\nContorno colorido cruzado: blueprint de objeto\nForma sólida: objeto instalado\nDourado: construção autorizada\nLaranja: demolição solicitada\nRoxo: porta/instalação\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
+	var controls_label := add_label(box, "CONTROLES\nSelecionar: esquerdo escolhe pessoa, porta ou objeto; direito move.\nPlanejar/Objeto: esquerdo marca; direito cancela obra.\nDemolir/Porta: esquerdo solicita; direito cancela tarefa.\nÁrea: escolha tipo e pinte com esquerdo.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint de parede\nContorno colorido cruzado: blueprint de objeto\nForma sólida: objeto instalado\nDourado: construção autorizada\nLaranja: demolição solicitada\nRoxo: porta/instalação\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
 	controls_label.custom_minimum_size.x = 220
 	controls_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	get_viewport().size_changed.connect(func() -> void: scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0))
@@ -188,6 +200,8 @@ func refresh_cell(grid: GridState, cell: Vector2i) -> void:
 		for neighbor: Vector2i in grid.interaction_cells(cell):
 			points.append("(%d, %d)" % [neighbor.x, neighbor.y])
 		cell_label.text += "\nInteração: " + (", ".join(points) if not points.is_empty() else "nenhuma")
+		if grid.reservations.has(cell):
+			cell_label.text += "\nReserva: " + str(grid.reservations[cell])
 	toggle_door_button.disabled = not grid.doors.has(cell)
 	toggle_door_button.text = "Fechar porta" if grid.doors.get(cell, false) else "Abrir porta"
 
@@ -216,3 +230,17 @@ func refresh(engineer: Engineer) -> void:
 
 func show_message(text: String) -> void:
 	message_label.text = text
+
+func refresh_population(person: ClassD) -> void:
+	population_label.text = "%s%s\nEstado: %s\nDestino: (%d, %d)\nFome: %.1f / 100\nDescanso: %.1f / 100\nNecessidade: %s\nImpedimento: %s" % [ClassD.NAME, " · selecionado" if person.selected else "", person.state, person.destination.x, person.destination.y, person.hunger, person.rest, person.current_need(), person.impediment if not person.impediment.is_empty() else "nenhum"]
+	if person.state == ClassD.USING:
+		population_label.text += "\nUso: %.1f / %.1f s" % [person.use_elapsed, person.use_seconds()]
+	alerts_label.text = "Alertas: nenhum" if person.alerts.is_empty() else "ALERTAS\n" + "\n".join(person.alerts)
+
+func refresh_selection(worker: Engineer, person: ClassD) -> void:
+	if person.selected:
+		selection_label.text = "Selecionado: " + ClassD.NAME
+		state_label.text = "Estado: " + person.state
+		destination_label.text = "Destino: (%d, %d)" % [person.destination.x, person.destination.y]
+	else:
+		refresh(worker)

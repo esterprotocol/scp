@@ -58,6 +58,7 @@ func run() -> void:
 	var scene := load("res://scenes/main.tscn") as PackedScene
 	var game = scene.instantiate()
 	root.add_child(game)
+	game.classd.set_process(false)
 	await process_frame
 	var engineer: Engineer = game.engineer
 	engineer.set_process(false)
@@ -135,6 +136,7 @@ func run() -> void:
 	await SaveTests.new().run(self, game)
 	await DoorAreaTests.new().run(self, game)
 	await ObjectTests.new().run(self, game)
+	await ClassDTests.new().run(self, game)
 	game.queue_free()
 	await process_frame
 	print("RESULT: %d checks, %d failures" % [checks, failures])

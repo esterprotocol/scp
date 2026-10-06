@@ -2,6 +2,7 @@ class_name MapView
 extends Node2D
 
 var grid: GridState
+var classd: ClassD
 var engineer: Engineer
 var construction: Construction
 var selected_cell := Vector2i(-1, -1)
@@ -81,6 +82,14 @@ func _draw() -> void:
 		last = next
 	if not engineer.route.is_empty():
 		draw_arc(grid.center(engineer.destination), 9, 0, TAU, 24, Color("64e6b6"), 2, true)
+	if classd != null:
+		last = classd.position
+		for cell: Vector2i in classd.route:
+			var next := grid.center(cell)
+			draw_line(last, next, Color("ff9955"), 2, true)
+			last = next
+		if classd.state in [ClassD.MOVING, ClassD.USING]:
+			draw_arc(grid.center(classd.destination), 11, 0, TAU, 24, Color("ff9955"), 2, true)
 	if grid.contains(hovered):
 		var color := Color("64e6b6") if grid.is_walkable(hovered) else Color("f2867f")
 		draw_rect(Rect2(Vector2(hovered) * size, Vector2.ONE * size).grow(-1), color, false, 2)
