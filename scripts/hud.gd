@@ -2,6 +2,8 @@ class_name SiteHUD
 extends CanvasLayer
 
 signal restart_requested
+signal save_requested
+signal load_requested
 signal mode_requested(planning: bool)
 signal demolish_requested
 signal authorize_requested
@@ -13,6 +15,8 @@ var state_label: Label
 var destination_label: Label
 var message_label: Label
 var restart_button: Button
+var save_button: Button
+var load_button: Button
 var select_button: Button
 var plan_button: Button
 var demolish_button: Button
@@ -84,6 +88,12 @@ func _ready() -> void:
 	restart_button.custom_minimum_size.y = 40
 	restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	box.add_child(restart_button)
+	var save_row := HBoxContainer.new()
+	box.add_child(save_row)
+	save_button = add_button(save_row, "Salvar", func() -> void: save_requested.emit())
+	load_button = add_button(save_row, "Carregar", func() -> void: load_requested.emit())
+	save_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(HSeparator.new())
 	add_label(box, "CONTROLES\nSelecionar: esquerdo seleciona;\ndireito move.\nPlanejar: esquerdo marca;\ndireito cancela obra.\nDemolir: esquerdo solicita;\ndireito cancela tarefa.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint não autorizado\nDourado: construção autorizada\nLaranja: demolição solicitada\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
 	get_viewport().size_changed.connect(func() -> void: scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0))

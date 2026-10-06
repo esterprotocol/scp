@@ -1,9 +1,9 @@
-# Progresso — entrega 03: demolição e saída segura
+# Progresso — entrega 04: slot manual de salvar/carregar
 
 ## Base e revisão
 
-- Base obrigatória verificada antes de editar: branch `feat/construction-basic`, commit completo `758c204ed9ada25ea366e558477ff62ceda43f3c`; `AGENTS.md` lido antes das alterações.
-- Branch da entrega: `feat/demolition-safe-access`, criada diretamente desse commit. Sem merge automático na `main`.
+- Base obrigatória verificada antes de editar: branch `feat/demolition-safe-access`, commit completo `228d13fac77b41a74366643e30dc851a95ed605e`; `AGENTS.md` lido antes das alterações.
+- Branch da entrega: `feat/save-load-basic`, criada diretamente desse commit. Sem merge automático na `main`.
 - Godot 4.6.3, Compatibility, dimensões, velocidade e funcionalidades da entrega anterior preservados.
 
 ## Implementado
@@ -33,17 +33,25 @@
 - Saída de referência `EXIT_CELL = SPAWN`. Seleção de posição de construção considera a parede hipotética concluída e prefere vizinho seguro quando houver saída antes da tarefa.
 - Mensagem exata para bloqueio de segurança: “Construção bloquearia a saída do engenheiro”. A obrigação permanece entre tentativas e é revalidada antes de concluir.
 - Simulação de navegação somente por leitura, com célula adicional bloqueada; não modifica grade nem emite eventos. Construções bloqueadas não impedem demolições que restabeleçam acesso.
+- Um único slot manual com botões Salvar/Carregar e mensagens. Arquivo `user://site_director.json`; o wrapper o mantém em `.tools/data/godot/app_userdata/Site Director/`, ignorado pelo Git. Reiniciar não apaga o save.
+- JSON esquema 1 e versão exata do Godot em metadados. Coordenadas explícitas `{x, y}`, paredes/blueprints em arrays e fila em array ordenado, sem chaves `Vector2i` implícitas.
+- Preserva grade completa, planejamento não autorizado, tarefas/ação/progresso/ordem/bloqueios, vínculos ativos e obrigação de saída, posição exata/rota/estado do trabalhador, câmera e ferramenta.
+- Validação integral em estado separado antes de tocar no mundo; recusa ausência, corrupção, incompatibilidade e inconsistências de navegação/trabalho. Carga substitui os campos sem somar estado, emitir sinais intermediários, teleportar ou reiniciar progresso.
+- Captura/aplicação síncronas na thread principal. Gravação por temporário, flush, releitura/validação e substituição por rename no mesmo diretório, sem remover o slot anterior em falha.
 
 ## Verificado no Godot
 
 - Executável existente: `/usr/local/bin/godot` → `/opt/godot/4.6.3/Godot_v4.6.3-stable_linux.x86_64`.
 - Versão executada: `4.6.3.stable.official.7d41c59c4`.
 - Importação headless do editor concluída, sem erros de scripts.
-- Runner: **730 verificações, 0 falhas**, com todos os cenários das entregas anteriores preservados. Cobre caminhos livres, desvio, destinos inválidos/inacessíveis, quinas, velocidade, chegada, redirecionamento, câmera, HUD, reinício e cliques sintéticos no viewport.
+- Runner: **823 verificações, 0 falhas**, com todos os cenários das entregas anteriores preservados. Cobre caminhos livres, desvio, destinos inválidos/inacessíveis, quinas, velocidade, chegada, redirecionamento, câmera, HUD, reinício e cliques sintéticos no viewport.
 - Testes adicionais verificam: blueprint transitável; autorização repetida; trabalho adjacente; tempo/progresso; recusa manual; cancelamento durante trabalho e deslocamento; conclusão e navegação atualizada; bloqueios sem paralisar outras tarefas; reavaliação por mudança da grade; revalidação de alvo/ocupação; invalidação de rotas e posição de trabalho; entrada pela interface; fechamento da abertura planejável; reinício integral.
 - Demolição/saída segura: parede preservada durante trabalho/cancelamento; pedido repetido; abrir rota antes inacessível; paredes originais e construídas; bloqueio do último acesso; escolha de outra posição segura e passagem pelo blueprint; simulação sem alteração/eventos; revalidação antes da conclusão; demolição restaurando saída e permitindo retomar construção; fila mista, interface e reinício integral.
 - A primeira execução ampliada detectou um mapa de teste com passagem alternativa não intencional; a fixture foi corrigida para efetivamente cortar a saída antes da conclusão. A fixture de demolição inacessível também foi ajustada para uma parede interna isolada. As verificações foram mantidas e a suíte completa reexecutada.
 - Foi necessário permitir cruzar o blueprint durante o deslocamento até o lado seguro; ocupação continua validada antes de iniciar/concluir trabalho. A suíte cobre esse percurso.
+- Persistência executada em arquivos isolados de teste: planejamento não autorizado; movimento entre células; construção/demolição parciais; fila mista bloqueada e ordenada; repetição de carga sem duplicação; conclusão única após retomada; grade nova/demolida; reiniciar e carregar; mensagens dos botões; ausência/corrupção/versões e estados inconsistentes recusados sem alterar o cenário.
+- Falha real de abertura do temporário (diretório no lugar do arquivo) preservou bytes do slot válido e cenário. A substituição de um slot existente também foi executada com sucesso.
+- Testes confirmam que a restauração não emite sinais de grade/engenheiro. O limite mínimo do zoom exigiu tolerância à representação float32 na validação; a posição e o zoom salvos continuam sendo restaurados sem arredondamento.
 - Cena principal executada por 120 frames em modo headless.
 - O erro de inferência de tipo da entrega anterior permanece corrigido. Na entrega atual, importação, suíte ampliada e execução headless passaram com `bash tools/validate.sh`.
 - Comando consolidado: `bash tools/validate.sh`; verificação de whitespace: `git diff --check`.
@@ -53,11 +61,13 @@
 - A tentativa gráfica da entrega anterior falhou: `X11 Display is not available`; fallback também falhou com `Can't connect to a Wayland display` e `XDG_RUNTIME_DIR is invalid or not set`. A validação visual desta entrega continua explicitamente pendente; nenhum teste visual humano foi declarado aprovado.
 - Headless usa renderização dummy: os testes comprovam lógica, cena e entrada sintética, mas não aparência, fluidez percebida ou desenho pelo driver Compatibility.
 - Câmera usa zoom centrado na tela; limites de deslocamento permitem ver margem ao redor do mapa.
-- Cenário fixo, uma unidade, sem salvamento. Sem portas, economia, necessidades, SCPs, combate ou múltiplos trabalhadores/reservas complexas.
+- Cenário fixo, uma unidade. Sem portas, economia, necessidades, SCPs, combate ou múltiplos trabalhadores/reservas complexas. Persistência é manual, um slot, sem autosave.
 - Se perder acesso, a tarefa fica bloqueada e perde o progresso incompleto; tentativas posteriores reiniciam o trabalho. Ordens manuais em trânsito terminam antes de assumir uma tarefa.
 - Cancelar tarefas não remove paredes existentes. Uma rota invalidada termina só o segmento seguro; novas ordens ou tarefas calculam nova rota.
 - A garantia de saída preserva conectividade existente até a referência; não cria uma saída para o engenheiro que já estava isolado antes da tarefa. Demolição pode restabelecer essa conexão.
+- Saves aceitam apenas esquema 1 e o Godot exato do projeto, com limite de 2 MiB; sem migração de versões. Dados de teclado/mouse pressionados e histórico de mensagens não são persistidos.
+- Substituição segura verificada no Linux deste ambiente; não foi testada em outros sistemas/arquivos de rede e não fornece garantia adicional contra falha física de disco/energia.
 
 ## Próxima tarefa
 
-Executar o roteiro manual ampliado do README numa sessão gráfica com Godot 4.6.3, registrando revisão visual de demolição, marcadores, saída segura, progresso, cancelamento e reinício, além das funcionalidades anteriores. Validação visual permanece explicitamente pendente. Novas mecânicas dependem de uma próxima entrega definida pelo usuário.
+Executar o roteiro manual ampliado do README numa sessão gráfica com Godot 4.6.3, incluindo Salvar/Carregar durante movimento, construção e demolição, mensagens de erro, repetição de carga e recuperação após reinício. Validação visual permanece explicitamente pendente. Novas mecânicas dependem de uma próxima entrega definida pelo usuário.

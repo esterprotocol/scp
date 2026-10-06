@@ -1,8 +1,8 @@
 # Site Director
 
-Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura e demolição física por um engenheiro. Sem assets externos, plugins ou dependências de jogo.
+Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega atual está na branch `feat/demolition-safe-access`, criada da base verificada `feat/construction-basic`, commit `758c204`. A `main` ainda não contém as entregas anteriores.
+A entrega atual está na branch `feat/save-load-basic`, criada da base verificada `feat/demolition-safe-access`, commit `228d13f`. Sem merge automático na `main`.
 
 ## Executar
 
@@ -43,6 +43,8 @@ bash tools/godot.sh
 | Arrastar com botão central | Deslocar câmera |
 | Roda do mouse | Zoom entre 0,65× e 1,8× |
 | Botão “Reiniciar cenário” | Restaurar cenário original, grade, obras, modo, engenheiro, câmera e painel |
+| Botão “Salvar” | Substituir o slot manual pelo cenário atual |
+| Botão “Carregar” | Substituir o cenário atual pelo slot validado |
 
 O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints são contornos cruzados: **azul** antes da autorização, **dourado** após autorização e **vermelho** quando bloqueados. Todos permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; a parede continua sólida durante o trabalho. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, estado, destino, ação, alvo, progresso, contagem de obras e motivos de bloqueio por célula. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
 
@@ -83,6 +85,29 @@ O engenheiro alcança um vizinho ortogonal transitável e trabalha por **1,5 seg
 
 Clique direito na parede no modo Demolir, use **Cancelar tarefa atual** ou **Cancelar todas as obras** para cancelar antes da conclusão. A parede permanece e o engenheiro fica disponível. Reiniciar restaura exatamente as paredes originais, incluindo as demolidas, remove paredes novas e limpa as duas ações da fila.
 
+## Salvar e carregar
+
+Use os botões **Salvar** e **Carregar**, abaixo de Reiniciar no painel (role se necessário). O painel mostra sucesso ou o motivo da falha. Existe apenas um slot manual; salvar novamente o substitui. Não há autosave. **Reiniciar não apaga o arquivo**, e carregar posteriormente recupera o cenário salvo.
+
+O arquivo é **`user://site_director.json`**. O caminho absoluto pode ser consultado com `OS.get_user_data_dir()` no Godot. Com `bash tools/godot.sh`, fica em **`.tools/data/godot/app_userdata/Site Director/site_director.json`**, dentro do repositório, em diretório ignorado pelo Git. Com o editor direto no Linux, o padrão é `~/.local/share/godot/app_userdata/Site Director/site_director.json`; outros sistemas usam o diretório de dados de usuário do Godot. O wrapper e o editor direto podem, portanto, usar arquivos diferentes.
+
+O formato é JSON com `schema_version: 1` e `godot_version: "4.6.3.stable.official.7d41c59c4"`, versão do projeto também registrada em `GameSettings.GODOT_VERSION`. Coordenadas são objetos explícitos `{"x": 6, "y": 5}`; paredes e blueprints são arrays desses objetos. Nenhuma chave de texto é interpretada como `Vector2i`.
+
+| Campo | Conteúdo |
+| --- | --- |
+| `walls` | Todas as paredes atuais, preservando originais demolidas e paredes novas |
+| `blueprints` | Planejamento completo; inclui os não autorizados e o vínculo visual dos autorizados |
+| `tasks` | Array na ordem da fila; cada tarefa contém `target`, `action`, `status`, `reason`, `elapsed` e `preserve_exit` |
+| `active`, `work_cell`, `dirty` | Alvo ativo e posição de trabalho (`null` quando ausentes), estado de reavaliação da fila |
+| `engineer` | Célula, posição exata em pixels, destino, rota restante, seleção, ocupado, trabalhando e ação |
+| `camera`, `tool` | Posição e zoom da câmera; ferramenta `select`, `plan` ou `demolish` |
+
+A captura e a aplicação são síncronas na thread principal, sem avançar a simulação. Carregar primeiro valida o documento inteiro em uma estrutura separada: tipos, versões, coordenadas, duplicações, tempo de trabalho, rota ortogonal transitável, posição no segmento, alvos e vínculos com o engenheiro/posição adjacente, saída segura ativa, câmera e ferramenta. Só então substitui os campos do mundo, sem resetar progresso, reposicionar em centros ou emitir sinais intermediários de grade/engenheiro/tarefas. Os objetos e suas conexões existentes permanecem; a simulação continua normalmente no próximo processamento.
+
+Salvar grava `site_director.json.tmp` no mesmo diretório, faz flush, fecha e relê/valida o temporário antes de renomeá-lo sobre o slot. Uma falha reportada de abertura/gravação/verificação/substituição mantém o slot anterior; o código nunca apaga o slot antigo para contornar uma falha. A substituição no sistema Linux deste ambiente foi executada e verificada. Não há garantia adicional contra falha física de disco/energia.
+
+Arquivos ausentes, JSON corrompido, versões incompatíveis ou estados inconsistentes são recusados sem modificar o mundo. A mensagem do painel muda para explicar o problema. Saves maiores que 2 MiB são recusados. Não há migração de esquema, múltiplos slots, restauração de controles de teclado/mouse mantidos pressionados ou histórico de mensagens do painel; a mensagem de carregar é mostrada no lugar do histórico.
+
 ## Validação automatizada
 
 ```bash
@@ -98,7 +123,9 @@ Cobertura de construção em `tests/construction_tests.gd`: blueprint transitáv
 
 Cobertura adicional em `tests/demolition_tests.gd`: permanência da parede durante trabalho; cancelamento em trânsito e durante demolição; duração/progresso; abertura de rota inacessível; pedido repetido; demolição de paredes originais e construídas; fila exclusiva mista; bloqueio do último acesso; posição alternativa segura com deslocamento pelo blueprint; simulação sem mutação/eventos; revalidação antes de concluir; demolição que restaura saída e retoma obra bloqueada; controles pelo viewport; reinício de paredes removidas/construídas, filas e trabalhador.
 
-Validação nesta entrega: **730 verificações, zero falhas**, com todos os cenários anteriores preservados; importação e execução headless concluídas com `bash tools/validate.sh`. A execução gráfica da primeira entrega foi tentada, mas o ambiente não oferecia X11/Wayland: `X11 Display is not available` e `Can't connect to a Wayland display`. Headless não valida pixels, aparência ou interação humana; a validação visual desta entrega continua explicitamente pendente em uma sessão gráfica.
+Cobertura de persistência em `tests/save_tests.gd`: blueprint não autorizado; movimento entre centros; construção e demolição parciais; fila mista e bloqueio; ordem, progresso e saída preservados; conclusão sem repetição; carga repetida sem duplicação/sinais intermediários; paredes novas/demolidas; ausência/corrupção/versões incompatíveis; coordenadas, vínculos, rota, progresso e câmera inválidos; limite mínimo de zoom float32; falha real ao abrir temporário preservando slot anterior; substituição do slot; reiniciar e recuperar; botões e mensagens. Os testes usam um caminho isolado em `user://` e o removem ao terminar, sem tocar no slot do jogador.
+
+Validação nesta entrega: **823 verificações, zero falhas**, com todos os cenários anteriores preservados; importação e execução headless concluídas com `bash tools/validate.sh`. A execução gráfica da primeira entrega foi tentada, mas o ambiente não oferecia X11/Wayland: `X11 Display is not available` e `Can't connect to a Wayland display`. Headless não valida pixels, aparência ou interação humana; a validação visual desta entrega continua explicitamente pendente em uma sessão gráfica.
 
 ## Teste manual visual (pendente)
 
@@ -120,9 +147,13 @@ Validação nesta entrega: **730 verificações, zero falhas**, com todos os cen
 16. Para um exemplo de proteção da referência, mova o engenheiro de `(4, 5)` para `(7, 5)` e planeje a célula `(4, 5)`. Autorize: deve aparecer a mensagem exata de saída bloqueada, pois construir sobre a própria saída não permite preservá-la. Uma demolição acessível solicitada em paralelo deve prosseguir.
 17. Para a posição alternativa segura, reinicie; construa as paredes `(6, 4)`, `(7, 4)`, `(8, 4)`, `(8, 5)`, `(8, 6)`, `(7, 6)` e `(6, 6)`. Mova o engenheiro para `(7, 5)` e planeje `(6, 5)`, a abertura desse pequeno recinto. O engenheiro deve cruzar a abertura e trabalhar do lado de fora `(5, 5)`, mantendo rota até `(4, 5)` após fechar. Os testes automatizados também verificam esse comportamento num corredor controlado.
 18. Reinicie com paredes originais demolidas, paredes novas e tarefas mistas incompletas: o mapa deve voltar exatamente ao original, com a abertura `(10, 12)`, engenheiro na origem, modo Selecionar e progresso zero.
+19. Planeje um blueprint sem autorizar, altere câmera/ferramenta e Salve. Reinicie e Carregue: confira blueprint não autorizado, câmera e modo restaurados. Repita Carregar: nada deve duplicar.
+20. Dê uma ordem longa e Salve entre centros. Carregue antes de chegar: o engenheiro deve voltar exatamente ao ponto salvo e continuar a rota, sem ser ajustado ao centro.
+21. Salve no meio de uma construção e depois de uma demolição. Reinicie e Carregue em cada caso: confira ação, alvo e progresso retomados, e conclusão única após o tempo restante. Inclua uma tarefa bloqueada antes e outra ação depois da ativa na fila.
+22. Confira as mensagens de Salvar/Carregar. Para testar erro manualmente, faça uma cópia externa do save e corrompa o JSON ou altere `schema_version`; Carregar deve recusar e preservar o mundo atual. Restaure a cópia ao terminar. Sem arquivo, Carregar deve informar ausência.
 
 ## Organização e limite de escopo
 
-`grid_state.gd`: estado e alterações da grade; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção/demolição, blueprints, tarefas, posição segura, bloqueios e trabalho; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
+`grid_state.gd`: estado e alterações da grade; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção/demolição, blueprints, tarefas, posição segura, bloqueios e trabalho; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
 
-Portas, economia, necessidades, SCPs, combate, save/load e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.
+Portas, economia, necessidades, SCPs, combate, autosave e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.

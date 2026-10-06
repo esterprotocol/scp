@@ -8,6 +8,7 @@ var hud := SiteHUD.new()
 var construction := Construction.new()
 var planning := false
 var demolishing := false
+var save_slot := SaveSlot.new()
 
 func _ready() -> void:
 	map_view.grid = grid
@@ -22,6 +23,8 @@ func _ready() -> void:
 	camera.reset()
 	add_child(hud)
 	hud.restart_requested.connect(reset_scenario)
+	hud.save_requested.connect(func() -> void: hud.show_message(save_slot.save_game(self)))
+	hud.load_requested.connect(func() -> void: hud.show_message(save_slot.load_game(self)))
 	hud.mode_requested.connect(set_planning)
 	hud.demolish_requested.connect(set_demolishing)
 	hud.authorize_requested.connect(func() -> void: hud.show_message(construction.authorize()))
