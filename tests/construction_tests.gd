@@ -208,5 +208,5 @@ func run(harness: SceneTree, scene: Node2D) -> void:
 	check(not worker.construction_busy and not worker.working and worker.route.is_empty(), "restart releases worker and clears movement")
 	check(worker.position == grid.center(GameSettings.SPAWN) and not worker.selected, "restart restores original engineer")
 	check(not game.planning and game.hud.select_button.button_pressed, "restart restores selection mode")
-	check(game.camera.position == GameSettings.INITIAL_CAMERA and is_equal_approx(game.camera.zoom.x, GameSettings.INITIAL_ZOOM), "restart preserves original camera reset")
+	check(game.camera.position == GameSettings.INITIAL_CAMERA and is_equal_approx(game.camera.zoom.x, 0.875), "restart preserves camera reset with map fitted at 720p")
 	check(game.hud.progress_bar.value == 0.0 and game.hud.task_label.text.contains("nenhuma"), "restart clears task and progress display")

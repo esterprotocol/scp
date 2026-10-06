@@ -103,7 +103,7 @@ func run() -> void:
 	game.hud.restart_button.pressed.emit()
 	check(engineer.cell == GameSettings.SPAWN and engineer.route.is_empty() and not engineer.selected, "restart button resets engineer")
 	check(engineer.position == grid.center(GameSettings.SPAWN), "restart resets position")
-	check(game.camera.position == GameSettings.INITIAL_CAMERA and is_equal_approx(game.camera.zoom.x, GameSettings.INITIAL_ZOOM), "restart resets camera")
+	check(game.camera.position == GameSettings.INITIAL_CAMERA and is_equal_approx(game.camera.zoom.x, 0.875), "restart resets camera and fits map at 720p")
 	check(game.hud.destination_label.text == "Destino: (4, 5)", "restart resets HUD")
 	# Route synthetic pointer events through the real viewport, including GUI
 	# consumption and the camera's world/screen transform.
@@ -119,8 +119,13 @@ func run() -> void:
 	check(game.hud.message_label.text.contains("parede"), "invalid click displays readable HUD message")
 	click(root, Vector2(40, 40), MOUSE_BUTTON_LEFT)
 	check(engineer.selected, "HUD consumes clicks without deselecting")
+	var scroll: ScrollContainer = game.hud.get_child(0).get_child(0)
+	scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
+	await process_frame
 	click(root, game.hud.restart_button.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 	check(not engineer.selected and engineer.route.is_empty(), "pointer click activates restart button")
+	scroll.scroll_vertical = 0
+	await process_frame
 	click(root, transform * engineer.position, MOUSE_BUTTON_LEFT)
 	click(root, transform * grid.center(Vector2i(6, 6)), MOUSE_BUTTON_LEFT)
 	check(not engineer.selected, "clicking floor deselects")

@@ -1,4 +1,26 @@
-# Progresso — entrega 04: slot manual de salvar/carregar
+# Progresso — entrega 05: verificação gráfica
+
+## Base e ambiente
+
+- Base confirmada antes de editar: `feat/save-load-basic` no commit `532f8315ab9421f89e3964be048098974f366e49`; `AGENTS.md` lido. Trabalho na branch `feat/visual-smoke-check`, sem merge na `main`.
+- Godot `4.6.3.stable.official.7d41c59c4`, renderizador Compatibility. A execução gráfica usou Xvfb e OpenGL Mesa `llvmpipe` 4.5; o log confirmou `Compatibility - Using Device: Mesa - llvmpipe`.
+- O repositório inicial não tinha Xvfb. A primeira tentativa de instalação pelo espelho configurado (`snapshot.debian.org`) recebeu HTTP 403; uma correção direcionada baixou o pacote Debian assinado pelo espelho `deb.debian.org` e o extraiu sob `.tools/visual/`. A sessão gráfica funcionou. Não foi usado renderizador dummy/headless como prova visual.
+
+## Execução e inspeção
+
+- `tools/visual_smoke.gd` prepara estados pela cena e pelos sistemas reais de planejamento, autorização, demolição e save/load. A captura aguarda frames de renderização e lê a janela X11 com `import`, sem interação humana. O save temporário visual usa `user://site_director_visual_smoke.json` e é removido depois.
+- Foram produzidas 12 capturas em `docs/screenshots/`: cenário inicial, construção com blueprint pendente, demolição em andamento, obra bloqueada, cenário carregado e painel rolado até os botões inferiores, cada uma em 1280×720 e 1920×1080. As dimensões PNG foram checadas pelo script.
+- As imagens foram inspecionadas com ferramenta de visão. Mapa e engenheiro aparecem em ambas as resoluções; botões e texto são legíveis, o painel rola até Salvar/Carregar, progresso e mensagens não se sobrepõem. Azul, dourado, laranja e vermelho distinguem os quatro estados pedidos; o motivo de bloqueio fica visível.
+- Defeitos demonstrados e corrigidos: a mensagem neutra `Nenhum bloqueio.` era vermelha; agora é cinza. A resolução base anterior, 1152×864, cortava a parte inferior do mapa numa tela de 720 px; a resolução base agora é 1280×720 e o zoom inicial considera a altura da janela, mantendo o mapa inteiro visível com margem. A captura final em 1920×1080 usa `--resolution 1920x1080` desde a inicialização para aplicar corretamente a escala do Godot.
+- Para reproduzir, inicie Xvfb nos displays com telas 1280×720 e 1920×1080, instale `import` (ImageMagick), e execute `DISPLAY=:100 LIBGL_ALWAYS_SOFTWARE=1 SITE_DIRECTOR_CAPTURE_WIDTH=1280 SITE_DIRECTOR_CAPTURE_HEIGHT=720 bash tools/godot.sh --audio-driver Dummy --resolution 1280x720 --position 0,0 --script res://tools/visual_smoke.gd`; para a outra resolução, use display `:99`, largura 1920, altura 1080 e `--resolution 1920x1080`.
+
+## Verificações e limites desta entrega
+
+- Testes de lógica: `bash tools/validate.sh` após as correções de código: **823 verificações, 0 falhas**, importação do editor e cena principal por 120 frames concluídas. As expectativas de zoom e clique no botão de reinício foram atualizadas para a janela de 720p e o painel rolável; todos os cenários antigos permanecem na suíte. O runner é headless e não conta como validação visual.
+- Execução gráfica: cena real desenhada via OpenGL Compatibility em Xvfb/llvmpipe, dois tamanhos, com capturas após renderização. Inspeção de imagens: feita nos seis estados de 1280×720 e nos cenários inicial, bloqueado e painel rolado de 1920×1080; as demais capturas de 1920×1080 foram geradas e estão disponíveis para revisão.
+- Testes manuais ainda pendentes: cliques reais do usuário, atalhos de teclado, arraste, rolagem com mouse, tempos de animação percebidos e uso em monitor/driver físico. Os estados gráficos foram preparados programaticamente; nenhuma interação humana foi declarada testada.
+
+## Histórico — entrega 04: slot manual de salvar/carregar
 
 ## Base e revisão
 

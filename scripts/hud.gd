@@ -123,6 +123,7 @@ func refresh_construction(construction: Construction) -> void:
 	progress_bar.value = construction.progress() * 100.0
 	queue_label.text = "Blueprints: %d · Tarefas: %d" % [construction.blueprints.size(), construction.tasks.size()]
 	blocked_label.text = construction.blocked_text()
+	blocked_label.add_theme_color_override("font_color", Color("f2867f") if blocked_label.text != "Nenhum bloqueio." else Color("b4c3cc"))
 
 func add_label(parent: Node, text: String) -> Label:
 	var label := Label.new()

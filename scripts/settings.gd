@@ -13,4 +13,5 @@ const CAMERA_SPEED := 420.0
 const ZOOM_MIN := 0.65
 const ZOOM_MAX := 1.8
 const INITIAL_ZOOM := 0.9
+const INITIAL_MAP_MARGIN := 24.0
 const INITIAL_CAMERA := Vector2(244, 384)

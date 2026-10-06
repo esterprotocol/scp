@@ -3,7 +3,12 @@ extends Camera2D
 
 func reset() -> void:
 	position = GameSettings.INITIAL_CAMERA
-	zoom = Vector2.ONE * GameSettings.INITIAL_ZOOM
+	var map_height := GameSettings.GRID_SIZE.y * GameSettings.CELL_SIZE
+	var window_height := DisplayServer.window_get_size().y
+	if window_height <= 0:
+		window_height = int(get_viewport_rect().size.y)
+	var available_height := window_height - 2.0 * GameSettings.INITIAL_MAP_MARGIN
+	zoom = Vector2.ONE * minf(GameSettings.INITIAL_ZOOM, maxf(GameSettings.ZOOM_MIN, available_height / map_height))
 
 func _process(delta: float) -> void:
 	var direction := Vector2(
