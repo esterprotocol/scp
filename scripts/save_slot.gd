@@ -2,7 +2,7 @@ class_name SaveSlot
 extends RefCounted
 
 const PATH := "user://site_director.json"
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 const MAX_BYTES := 2 * 1024 * 1024
 
 static func coordinates(value: Vector2) -> Dictionary:
@@ -22,9 +22,15 @@ func capture(game: Node2D) -> Dictionary:
 		var task: Dictionary = jobs.tasks[target].duplicate()
 		task.target = {"x": target.x, "y": target.y}
 		queue.append(task)
+	var doors: Array = []
+	for cell: Vector2i in game.grid.doors:
+		doors.append({"cell": coordinates(Vector2(cell)), "open": game.grid.doors[cell]})
+	var areas: Array = []
+	for cell: Vector2i in game.grid.areas:
+		areas.append({"cell": coordinates(Vector2(cell)), "type": game.grid.areas[cell]})
 	return {
 		"schema_version": SCHEMA_VERSION, "godot_version": GameSettings.GODOT_VERSION,
-		"walls": cells(game.grid.walls), "blueprints": cells(jobs.blueprints), "tasks": queue,
+		"walls": cells(game.grid.walls), "doors": doors, "areas": areas, "blueprints": cells(jobs.blueprints), "tasks": queue,
 		"active": null if jobs.active == Construction.NONE else coordinates(Vector2(jobs.active)),
 		"work_cell": null if jobs.work_cell == Construction.NONE else coordinates(Vector2(jobs.work_cell)),
 		"dirty": jobs.dirty,
@@ -32,7 +38,8 @@ func capture(game: Node2D) -> Dictionary:
 			"destination": coordinates(Vector2(worker.destination)), "route": cells(worker.route),
 			"selected": worker.selected, "busy": worker.construction_busy, "working": worker.working, "action": worker.work_action},
 		"camera": {"position": coordinates(game.camera.position), "zoom": game.camera.zoom.x},
-		"tool": "demolish" if game.demolishing else ("plan" if game.planning else "select")
+		"tool": "area" if game.painting_area else ("door" if game.installing_door else ("demolish" if game.demolishing else ("plan" if game.planning else "select"))),
+		"area_type": game.area_type, "selected_cell": null if game.selected_cell.x < 0 else coordinates(Vector2(game.selected_cell))
 	}
 
 func _invalid(message: String) -> Dictionary:
@@ -69,7 +76,7 @@ func decode(data: Variant) -> Dictionary:
 	# Validate and normalize a detached snapshot. No live nodes are modified.
 	if not data is Dictionary:
 		return _invalid("o documento precisa ser um objeto JSON.")
-	if not _number(data.get("schema_version")) or data.schema_version != SCHEMA_VERSION:
+	if not _number(data.get("schema_version")) or float(data.schema_version) != floorf(float(data.schema_version)) or int(data.schema_version) not in [1, SCHEMA_VERSION]:
 		return _invalid("versão do esquema incompatível.")
 	if data.get("godot_version") != GameSettings.GODOT_VERSION:
 		return _invalid("versão do Godot incompatível.")
@@ -81,6 +88,24 @@ func decode(data: Variant) -> Dictionary:
 	grid.walls.clear()
 	for cell: Vector2i in walls:
 		grid.walls[cell] = true
+	var raw_doors: Variant = data.get("doors", []) if int(data.schema_version) == 1 else data.get("doors")
+	var raw_areas: Variant = data.get("areas", []) if int(data.schema_version) == 1 else data.get("areas")
+	if not raw_doors is Array or raw_doors.size() > 576 or not raw_areas is Array or raw_areas.size() > 576:
+		return _invalid("portas ou áreas inválidas.")
+	for entry in raw_doors:
+		if not entry is Dictionary or not entry.get("open") is bool:
+			return _invalid("porta inválida.")
+		var door_cell = _point(entry.get("cell"), true)
+		if door_cell == null or grid.walls.has(door_cell) or grid.doors.has(door_cell):
+			return _invalid("porta duplicada, fora da grade ou sobre parede.")
+		grid.doors[door_cell] = entry.open
+	for entry in raw_areas:
+		if not entry is Dictionary or not _number(entry.get("type")):
+			return _invalid("área inválida.")
+		var area_cell = _point(entry.get("cell"), true)
+		if area_cell == null or grid.areas.has(area_cell) or float(entry.type) != floorf(float(entry.type)) or entry.type < 1 or entry.type >= GridState.AREA_NAMES.size():
+			return _invalid("área duplicada, fora da grade ou com tipo inválido.")
+		grid.areas[area_cell] = int(entry.type)
 	var planned: Dictionary = {}
 	for cell: Vector2i in blueprints:
 		if not grid.is_walkable(cell):
@@ -93,17 +118,19 @@ func decode(data: Variant) -> Dictionary:
 		if not task is Dictionary:
 			return _invalid("tarefa inválida.")
 		var target = _point(task.get("target"), true)
-		if target == null or tasks.has(target) or task.get("action") not in [Construction.BUILD, Construction.DEMOLISH]:
+		if target == null or tasks.has(target) or task.get("action") not in [Construction.BUILD, Construction.DEMOLISH, Construction.INSTALL_DOOR]:
 			return _invalid("alvo/ação inválido ou tarefa duplicada.")
-		if task.get("status") not in ["Na fila", "Bloqueada", "Deslocando", "Construindo", "Demolindo"] or not task.get("reason") is String or task.reason.length() > 4096:
+		if task.get("status") not in ["Na fila", "Bloqueada", "Deslocando", "Construindo", "Demolindo", "Instalando"] or not task.get("reason") is String or task.reason.length() > 4096:
 			return _invalid("estado de tarefa inválido.")
-		var duration := GameSettings.WALL_BUILD_SECONDS if task.action == Construction.BUILD else GameSettings.WALL_DEMOLISH_SECONDS
+		var duration := GameSettings.WALL_BUILD_SECONDS if task.action == Construction.BUILD else (GameSettings.DOOR_INSTALL_SECONDS if task.action == Construction.INSTALL_DOOR else GameSettings.WALL_DEMOLISH_SECONDS)
 		if not task.get("preserve_exit") is bool or not _number(task.get("elapsed")) or task.elapsed < 0 or task.elapsed >= duration:
 			return _invalid("progresso/obrigação de saída inválido.")
 		if task.action == Construction.BUILD and (not planned.has(target) or not grid.is_walkable(target)):
 			return _invalid("construção sem blueprint ou sobre parede.")
-		if task.action == Construction.DEMOLISH and not grid.walls.has(target):
-			return _invalid("demolição sem parede.")
+		if task.action == Construction.DEMOLISH and not grid.walls.has(target) and not grid.doors.has(target):
+			return _invalid("demolição sem parede ou porta.")
+		if task.action == Construction.INSTALL_DOOR and not grid.walls.has(target):
+			return _invalid("instalação sem parede.")
 		if task.status in ["Na fila", "Bloqueada", "Deslocando"] and task.elapsed != 0:
 			return _invalid("progresso fora de trabalho ativo.")
 		if (task.status == "Bloqueada") != (not task.reason.is_empty()):
@@ -121,7 +148,7 @@ func decode(data: Variant) -> Dictionary:
 	for flag in ["selected", "busy", "working"]:
 		if not saved_worker.get(flag) is bool:
 			return _invalid("estado do engenheiro inválido.")
-	if saved_worker.get("action") not in [Construction.BUILD, Construction.DEMOLISH]:
+	if saved_worker.get("action") not in [Construction.BUILD, Construction.DEMOLISH, Construction.INSTALL_DOOR]:
 		return _invalid("ação do engenheiro inválida.")
 	var previous: Vector2i = cell
 	for index in route.size():
@@ -161,7 +188,7 @@ func decode(data: Variant) -> Dictionary:
 		if absi(difference.x) + absi(difference.y) != 1:
 			return _invalid("posição de trabalho não adjacente.")
 		var task: Dictionary = tasks[active]
-		var expected := ("Construindo" if task.action == Construction.BUILD else "Demolindo") if saved_worker.working else "Deslocando"
+		var expected := ("Construindo" if task.action == Construction.BUILD else ("Instalando" if task.action == Construction.INSTALL_DOOR else "Demolindo")) if saved_worker.working else "Deslocando"
 		if task.status != expected or (saved_worker.working and (not route.is_empty() or position != grid.center(work_cell))):
 			return _invalid("estado de trabalho inconsistente.")
 		if task.action == Construction.BUILD:
@@ -181,11 +208,16 @@ func decode(data: Variant) -> Dictionary:
 	# rather than rounding/clamping the restored zoom.
 	if camera_position == null or not _number(camera.get("zoom")) or (camera.zoom < GameSettings.ZOOM_MIN and not is_equal_approx(camera.zoom, GameSettings.ZOOM_MIN)) or (camera.zoom > GameSettings.ZOOM_MAX and not is_equal_approx(camera.zoom, GameSettings.ZOOM_MAX)):
 		return _invalid("câmera/zoom inválido.")
-	if camera_position.x < -128 or camera_position.y < -128 or camera_position.x > 896 or camera_position.y > 896 or data.get("tool") not in ["select", "plan", "demolish"]:
+	if camera_position.x < -128 or camera_position.y < -128 or camera_position.x > 896 or camera_position.y > 896 or data.get("tool") not in ["select", "plan", "demolish", "door", "area"]:
 		return _invalid("câmera/modo fora dos limites.")
-	return {"state": {"walls": grid.walls, "blueprints": planned, "tasks": tasks, "active": active, "work_cell": work_cell, "dirty": data.dirty,
+	var area_type: Variant = data.get("area_type", 1) if int(data.schema_version) == 1 else data.get("area_type")
+	var raw_selected: Variant = data.get("selected_cell", null) if int(data.schema_version) == 1 else data.get("selected_cell")
+	var selected_cell = Construction.NONE if raw_selected == null else _point(raw_selected, true)
+	if not _number(area_type) or float(area_type) != floorf(float(area_type)) or area_type < 0 or area_type >= GridState.AREA_NAMES.size() or selected_cell == null:
+		return _invalid("tipo de área ou célula selecionada inválidos.")
+	return {"state": {"walls": grid.walls, "doors": grid.doors, "areas": grid.areas, "blueprints": planned, "tasks": tasks, "active": active, "work_cell": work_cell, "dirty": data.dirty,
 		"cell": cell, "position": position, "destination": destination, "route": route, "worker": saved_worker,
-		"camera_position": camera_position, "zoom": float(camera.zoom), "tool": data.tool}}
+		"camera_position": camera_position, "zoom": float(camera.zoom), "tool": data.tool, "area_type": int(area_type), "selected_cell": selected_cell}}
 
 func apply(game: Node2D, state: Dictionary) -> void:
 	# Synchronous commit on Godot's main thread: no await, signals, reset,
@@ -193,6 +225,8 @@ func apply(game: Node2D, state: Dictionary) -> void:
 	var worker: Engineer = game.engineer
 	var jobs: Construction = game.construction
 	game.grid.walls = state.walls
+	game.grid.doors = state.doors
+	game.grid.areas = state.areas
 	jobs.blueprints = state.blueprints
 	jobs.tasks = state.tasks
 	jobs.active = state.active
@@ -208,10 +242,17 @@ func apply(game: Node2D, state: Dictionary) -> void:
 	worker.work_action = state.worker.action
 	game.camera.position = state.camera_position
 	game.camera.zoom = Vector2.ONE * state.zoom
+	game.area_type = state.area_type
+	game.hud.area_type.select(state.area_type)
 	if state.tool == "demolish":
 		game.set_demolishing()
+	elif state.tool == "door":
+		game.set_door_mode()
+	elif state.tool == "area":
+		game.set_area_mode()
 	else:
 		game.set_planning(state.tool == "plan")
+	game.select_cell(state.selected_cell)
 	worker.queue_redraw()
 	game.map_view.queue_redraw()
 	game.hud.refresh(worker)

@@ -1,8 +1,8 @@
 # Site Director
 
-Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
+Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega atual está na branch `feat/save-load-basic`, criada da base verificada `feat/demolition-safe-access`, commit `228d13f`. Sem merge automático na `main`.
+A entrega atual está na branch `feat/doors-and-zones`, criada da base verificada `feat/visual-smoke-check`, commit `ec3a2b2`. Sem merge automático na `main`.
 
 ## Executar
 
@@ -36,6 +36,11 @@ bash tools/godot.sh
 | Botão “Demolir” | Ativar seleção de paredes para demolição |
 | Botão esquerdo sobre parede, no modo Demolir | Solicitar uma tarefa de demolição, sem remover a parede |
 | Botão direito, no modo Demolir | Cancelar a tarefa da célula, preservando a parede |
+| Botão “Porta” e esquerdo sobre uma parede | Solicitar instalação física de porta fechada |
+| Botão direito, no modo Porta | Cancelar instalação incompleta; a parede original permanece |
+| Esquerdo sobre uma porta no modo Selecionar; botão “Abrir/Fechar porta” | Selecionar e operar a porta; não fecha sobre o engenheiro |
+| Botão “Área”, seletor de tipo e esquerdo sobre piso | Pintar célula transitável; arrastar com esquerdo pinta outras células |
+| Tipo “Sem área” | Apagar designação da célula pintada |
 | Botão “Autorizar planejados” | Criar uma tarefa para cada blueprint ainda não autorizado |
 | Botão “Cancelar tarefa atual” | Remover a obra atual e liberar o engenheiro |
 | Botão “Cancelar todas as obras” | Remover todos os blueprints e trabalhos incompletos |
@@ -46,13 +51,13 @@ bash tools/godot.sh
 | Botão “Salvar” | Substituir o slot manual pelo cenário atual |
 | Botão “Carregar” | Substituir o cenário atual pelo slot validado |
 
-O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints são contornos cruzados: **azul** antes da autorização, **dourado** após autorização e **vermelho** quando bloqueados. Todos permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; a parede continua sólida durante o trabalho. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, estado, destino, ação, alvo, progresso, contagem de obras e motivos de bloqueio por célula. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
+O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints são contornos cruzados: **azul** antes da autorização, **dourado** após autorização e **vermelho** quando bloqueados. Todos permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; a parede ou porta continua no lugar durante o trabalho. Portas e instalações são **roxas** quando fechadas/em obra, com traço horizontal; portas abertas são **ciano**, com traço lateral. Áreas usam cores suaves: Alojamento azul, Refeitório verde, Contenção violeta. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, tipo de área da célula, estado da porta, destino, ação, alvo, progresso, contagem de obras e motivos de bloqueio. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
 
 ## Regras do protótipo
 
 - Mapa de **24 × 24 células**, com **32 pixels** por célula; coordenadas `(x, y)` começam em `(0, 0)` no canto superior esquerdo.
 - Engenheiro começa em `(4, 5)` e anda a **128 px/s**.
-- Busca em largura (BFS) encontra uma rota mínima entre células de mesmo custo. Só há passos ortogonais: não atravessa paredes nem corta quinas.
+- Busca em largura (BFS) encontra uma rota mínima entre células de mesmo custo. Só há passos ortogonais: não atravessa paredes nem portas fechadas, e não corta quinas.
 - Uma ordem durante o movimento termina o segmento atual antes de seguir a nova rota. Ordens inválidas preservam a rota e o destino anteriores, mostrando o motivo.
 - Parede em `x=10`, de `y=3` a `18`, com passagem em `y=12`; paredes adicionais e sala fechada entre `(18, 18)` e `(21, 21)`.
 - Dimensões, velocidade, posição inicial e limites da câmera estão centralizados em `scripts/settings.gd`. O cenário fixo é definido em `scripts/grid_state.gd`.
@@ -85,28 +90,36 @@ O engenheiro alcança um vizinho ortogonal transitável e trabalha por **1,5 seg
 
 Clique direito na parede no modo Demolir, use **Cancelar tarefa atual** ou **Cancelar todas as obras** para cancelar antes da conclusão. A parede permanece e o engenheiro fica disponível. Reiniciar restaura exatamente as paredes originais, incluindo as demolidas, remove paredes novas e limpa as duas ações da fila.
 
+## Portas e áreas designadas
+
+No modo **Porta**, clique numa parede existente. O pedido entra na mesma fila de obras: o engenheiro chega a uma célula ortogonal adjacente e instala a porta por **1,5 segundo** (`GameSettings.DOOR_INSTALL_SECONDS`). Até terminar, a parede original continua sólida. Cancelar preserva essa parede. Ao concluir, a célula passa a ser uma porta fechada, que ainda bloqueia passagem. No modo **Selecionar**, clique na porta e use **Abrir porta** ou **Fechar porta** no painel. Abrir libera a passagem; fechar invalida rotas que a cruzariam e não é permitido enquanto o engenheiro ocupa a célula. Mudanças na porta reavaliam tarefas bloqueadas. O modo **Demolir** aceita portas abertas ou fechadas e só remove a porta após trabalho físico, deixando piso transitável. Reiniciar restaura paredes originais e remove todas as portas desta entrega.
+
+No modo **Área**, escolha **Sem área**, **Alojamento**, **Refeitório** ou **Contenção** e clique/arraste o botão esquerdo sobre células transitáveis. Cada célula guarda seu tipo independentemente das paredes, portas e blueprints; formas livres são aceitas, sem exigência de recinto fechado. O tipo aparece ao selecionar a célula. Áreas não afetam navegação e ainda não tornam salas operacionais: faltam objetos numa entrega futura. Reiniciar limpa as designações.
+
 ## Salvar e carregar
 
 Use os botões **Salvar** e **Carregar**, abaixo de Reiniciar no painel (role se necessário). O painel mostra sucesso ou o motivo da falha. Existe apenas um slot manual; salvar novamente o substitui. Não há autosave. **Reiniciar não apaga o arquivo**, e carregar posteriormente recupera o cenário salvo.
 
 O arquivo é **`user://site_director.json`**. O caminho absoluto pode ser consultado com `OS.get_user_data_dir()` no Godot. Com `bash tools/godot.sh`, fica em **`.tools/data/godot/app_userdata/Site Director/site_director.json`**, dentro do repositório, em diretório ignorado pelo Git. Com o editor direto no Linux, o padrão é `~/.local/share/godot/app_userdata/Site Director/site_director.json`; outros sistemas usam o diretório de dados de usuário do Godot. O wrapper e o editor direto podem, portanto, usar arquivos diferentes.
 
-O formato é JSON com `schema_version: 1` e `godot_version: "4.6.3.stable.official.7d41c59c4"`, versão do projeto também registrada em `GameSettings.GODOT_VERSION`. Coordenadas são objetos explícitos `{"x": 6, "y": 5}`; paredes e blueprints são arrays desses objetos. Nenhuma chave de texto é interpretada como `Vector2i`.
+O formato atual é JSON com `schema_version: 2` e `godot_version: "4.6.3.stable.official.7d41c59c4"`, versão do projeto também registrada em `GameSettings.GODOT_VERSION`. Arquivos válidos do esquema 1 continuam legíveis e são gravados no esquema 2 ao salvar de novo. Coordenadas são objetos explícitos `{"x": 6, "y": 5}`; paredes e blueprints são arrays desses objetos. Nenhuma chave de texto é interpretada como `Vector2i`.
 
 | Campo | Conteúdo |
 | --- | --- |
 | `walls` | Todas as paredes atuais, preservando originais demolidas e paredes novas |
+| `doors` | Lista de célula e estado `open`; independente das paredes |
+| `areas` | Lista de célula e `type` numérico: 1 Alojamento, 2 Refeitório, 3 Contenção |
 | `blueprints` | Planejamento completo; inclui os não autorizados e o vínculo visual dos autorizados |
 | `tasks` | Array na ordem da fila; cada tarefa contém `target`, `action`, `status`, `reason`, `elapsed` e `preserve_exit` |
 | `active`, `work_cell`, `dirty` | Alvo ativo e posição de trabalho (`null` quando ausentes), estado de reavaliação da fila |
 | `engineer` | Célula, posição exata em pixels, destino, rota restante, seleção, ocupado, trabalhando e ação |
-| `camera`, `tool` | Posição e zoom da câmera; ferramenta `select`, `plan` ou `demolish` |
+| `camera`, `tool`, `area_type`, `selected_cell` | Câmera, ferramenta, tipo escolhido e célula selecionada |
 
 A captura e a aplicação são síncronas na thread principal, sem avançar a simulação. Carregar primeiro valida o documento inteiro em uma estrutura separada: tipos, versões, coordenadas, duplicações, tempo de trabalho, rota ortogonal transitável, posição no segmento, alvos e vínculos com o engenheiro/posição adjacente, saída segura ativa, câmera e ferramenta. Só então substitui os campos do mundo, sem resetar progresso, reposicionar em centros ou emitir sinais intermediários de grade/engenheiro/tarefas. Os objetos e suas conexões existentes permanecem; a simulação continua normalmente no próximo processamento.
 
 Salvar grava `site_director.json.tmp` no mesmo diretório, faz flush, fecha e relê/valida o temporário antes de renomeá-lo sobre o slot. Uma falha reportada de abertura/gravação/verificação/substituição mantém o slot anterior; o código nunca apaga o slot antigo para contornar uma falha. A substituição no sistema Linux deste ambiente foi executada e verificada. Não há garantia adicional contra falha física de disco/energia.
 
-Arquivos ausentes, JSON corrompido, versões incompatíveis ou estados inconsistentes são recusados sem modificar o mundo. A mensagem do painel muda para explicar o problema. Saves maiores que 2 MiB são recusados. Não há migração de esquema, múltiplos slots, restauração de controles de teclado/mouse mantidos pressionados ou histórico de mensagens do painel; a mensagem de carregar é mostrada no lugar do histórico.
+Arquivos ausentes, JSON corrompido, versões incompatíveis ou estados inconsistentes são recusados sem modificar o mundo. A mensagem do painel muda para explicar o problema. Saves maiores que 2 MiB são recusados. Há leitura compatível do esquema 1, sem suporte a versões futuras, múltiplos slots, restauração de controles de teclado/mouse mantidos pressionados ou histórico de mensagens do painel; a mensagem de carregar é mostrada no lugar do histórico.
 
 ## Validação automatizada
 
@@ -125,7 +138,9 @@ Cobertura adicional em `tests/demolition_tests.gd`: permanência da parede duran
 
 Cobertura de persistência em `tests/save_tests.gd`: blueprint não autorizado; movimento entre centros; construção e demolição parciais; fila mista e bloqueio; ordem, progresso e saída preservados; conclusão sem repetição; carga repetida sem duplicação/sinais intermediários; paredes novas/demolidas; ausência/corrupção/versões incompatíveis; coordenadas, vínculos, rota, progresso e câmera inválidos; limite mínimo de zoom float32; falha real ao abrir temporário preservando slot anterior; substituição do slot; reiniciar e recuperar; botões e mensagens. Os testes usam um caminho isolado em `user://` e o removem ao terminar, sem tocar no slot do jogador.
 
-Validação atual: **823 verificações, zero falhas**, com todos os cenários anteriores preservados; importação e execução headless concluídas com `bash tools/validate.sh`. A cena também foi executada graficamente em Xvfb com Mesa llvmpipe e renderizador Compatibility, em 1280×720 e 1920×1080. As 12 capturas em `docs/screenshots/` mostram os estados inicial, construção, demolição, bloqueio, carregamento e painel rolado. As imagens foram inspecionadas; o roteiro manual abaixo continua pendente, sem alegação de cliques humanos ou teste em monitor físico.
+Cobertura de portas/áreas em `tests/door_area_tests.gd`: instalação parcial e conclusão física; cancelamento preservando parede; porta fechada/aberta na navegação e no painel; tarefa bloqueada retomada ao abrir; rota invalidada ao fechar; demolição de porta; áreas arbitrárias sem bloquear caminho e independentes de paredes; seleção e clique no painel; save/load de porta aberta/fechada, áreas e instalação parcial; rejeição de sobreposição inválida; leitura de save legado do esquema 1; reinício das estruturas originais.
+
+Validação atual: **963 verificações, 0 falhas** com `bash tools/validate.sh`. A cena foi executada graficamente em Xvfb com Mesa llvmpipe e renderizador Compatibility; as três novas capturas `07`–`09` em `docs/screenshots/` mostram instalação de porta, portas aberta/fechada, áreas e painel rolado em 1280×720. As imagens foram inspecionadas e um alargamento indevido do painel foi corrigido. O roteiro manual abaixo continua pendente, sem alegação de cliques humanos ou teste em monitor físico.
 
 ## Teste manual visual (pendente)
 
@@ -151,9 +166,11 @@ Validação atual: **823 verificações, zero falhas**, com todos os cenários a
 20. Dê uma ordem longa e Salve entre centros. Carregue antes de chegar: o engenheiro deve voltar exatamente ao ponto salvo e continuar a rota, sem ser ajustado ao centro.
 21. Salve no meio de uma construção e depois de uma demolição. Reinicie e Carregue em cada caso: confira ação, alvo e progresso retomados, e conclusão única após o tempo restante. Inclua uma tarefa bloqueada antes e outra ação depois da ativa na fila.
 22. Confira as mensagens de Salvar/Carregar. Para testar erro manualmente, faça uma cópia externa do save e corrompa o JSON ou altere `schema_version`; Carregar deve recusar e preservar o mundo atual. Restaure a cópia ao terminar. Sem arquivo, Carregar deve informar ausência.
+23. No modo Porta, clique numa parede. Confira que ela continua sólida durante a instalação, que cancelar preserva a parede e que a conclusão a troca por porta fechada. No modo Selecionar, clique na porta e abra/feche pelo painel; confira alteração de caminho e impossibilidade de fechar sobre o engenheiro.
+24. Demola uma porta e confira que só ao terminar ela vira piso. Pinte células transitáveis com os quatro tipos do seletor Área, inclusive formas abertas; confira a cor suave, o tipo no painel, navegação inalterada, save/load e limpeza ao reiniciar.
 
 ## Organização e limite de escopo
 
-`grid_state.gd`: estado e alterações da grade; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção/demolição, blueprints, tarefas, posição segura, bloqueios e trabalho; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
+`grid_state.gd`: paredes, portas e áreas independentes; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção, demolição e instalação; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
 
-Portas, economia, necessidades, SCPs, combate, autosave e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.
+Classe-D, necessidades, economia, SCPs, combate, objetos de sala, autosave e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.

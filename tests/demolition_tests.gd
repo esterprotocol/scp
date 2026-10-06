@@ -41,7 +41,7 @@ func run(harness: SceneTree, scene: Node2D) -> void:
 	begin_work()
 	var difference := worker.cell - target
 	check(absi(difference.x) + absi(difference.y) == 1, "demolition works orthogonally adjacent")
-	check(worker.state_text() == "Demolindo parede" and game.hud.task_label.text.contains("Demolir"), "HUD identifies demolition action and target")
+	check(worker.state_text().begins_with("Demolindo") and game.hud.task_label.text.contains("Demolir"), "HUD identifies demolition action and target")
 	jobs._process(GameSettings.WALL_DEMOLISH_SECONDS * 0.5)
 	check(grid.walls.has(target) and is_equal_approx(jobs.progress(), 0.5), "wall remains during configurable demolition work")
 	check(GridNavigation.find_path(grid, worker.cell, Vector2i(19, 19)).is_empty(), "incomplete demolition keeps route closed")

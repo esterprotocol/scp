@@ -6,6 +6,7 @@ signal changed
 const NONE := Vector2i(-1, -1)
 const BUILD := "Construir"
 const DEMOLISH := "Demolir"
+const INSTALL_DOOR := "Instalar porta"
 const UNSAFE_EXIT := "Construção bloquearia a saída do engenheiro"
 
 var grid: GridState
@@ -30,8 +31,10 @@ func target_reason(target: Vector2i, action: String = BUILD, check_occupation: b
 	if not grid.contains(target):
 		return "Fora do mapa."
 	if action == DEMOLISH:
-		return "" if grid.walls.has(target) else "Não existe parede nessa célula."
-	if not grid.is_walkable(target):
+		return "" if grid.walls.has(target) or grid.doors.has(target) else "Não existe parede ou porta nessa célula."
+	if action == INSTALL_DOOR:
+		return "" if grid.walls.has(target) else "A porta precisa de uma parede existente."
+	if not grid.is_walkable(target) or grid.doors.has(target):
 		return "Já existe uma parede nessa célula."
 	if check_occupation and engineer.occupies(target):
 		return "Célula ocupada pelo engenheiro."
@@ -57,6 +60,17 @@ func request_demolition(target: Vector2i) -> String:
 	dirty = true
 	changed.emit()
 	return "Demolição solicitada. A parede permanece até concluir o trabalho."
+
+func request_door(target: Vector2i) -> String:
+	var reason := target_reason(target, INSTALL_DOOR)
+	if not reason.is_empty():
+		return "Não é possível instalar porta: " + reason
+	if tasks.has(target):
+		return "Já existe uma tarefa nessa célula."
+	tasks[target] = _new_task(INSTALL_DOOR)
+	dirty = true
+	changed.emit()
+	return "Instalação solicitada. A parede permanece até concluir o trabalho."
 
 func _new_task(action: String) -> Dictionary:
 	return {"action": action, "status": "Na fila", "reason": "", "elapsed": 0.0, "preserve_exit": false}
@@ -135,7 +149,7 @@ func _choose_work_cell(target: Vector2i) -> Vector2i:
 	for direction: Vector2i in GridNavigation.DIRECTIONS:
 		var candidate := target + direction
 		var path := GridNavigation.find_path(grid, engineer.cell, candidate)
-		if not path.is_empty() and (tasks[target].action == DEMOLISH or _safe_work_cell(target, candidate)) and path.size() < best_length:
+		if not path.is_empty() and (tasks[target].action != BUILD or _safe_work_cell(target, candidate)) and path.size() < best_length:
 			best = candidate
 			best_length = path.size()
 	return best
@@ -204,13 +218,20 @@ func _process(delta: float) -> void:
 	# including the completion tick. Only a completed task changes navigation.
 	if not engineer.working:
 		engineer.working = true
-		tasks[active].status = "Demolindo" if tasks[active].action == DEMOLISH else "Construindo"
+		tasks[active].status = "Demolindo" if tasks[active].action == DEMOLISH else ("Instalando" if tasks[active].action == INSTALL_DOOR else "Construindo")
 		changed.emit()
 		return
 	tasks[active].elapsed += maxf(delta, 0.0)
 	if tasks[active].elapsed >= work_seconds():
 		var completed := active
-		var success := grid.remove_wall(completed) if tasks[completed].action == DEMOLISH else grid.add_wall(completed)
+		var action: String = tasks[completed].action
+		var success := false
+		if action == DEMOLISH:
+			success = grid.remove_door(completed) if grid.doors.has(completed) else grid.remove_wall(completed)
+		elif action == INSTALL_DOOR:
+			success = grid.install_door(completed)
+		else:
+			success = grid.add_wall(completed)
 		if success:
 			tasks.erase(completed)
 			blueprints.erase(completed)
@@ -225,7 +246,11 @@ func progress() -> float:
 	return clampf(float(tasks[active].elapsed) / work_seconds(), 0.0, 1.0)
 
 func work_seconds() -> float:
-	return GameSettings.WALL_DEMOLISH_SECONDS if tasks[active].action == DEMOLISH else GameSettings.WALL_BUILD_SECONDS
+	if tasks[active].action == DEMOLISH:
+		return GameSettings.WALL_DEMOLISH_SECONDS
+	if tasks[active].action == INSTALL_DOOR:
+		return GameSettings.DOOR_INSTALL_SECONDS
+	return GameSettings.WALL_BUILD_SECONDS
 
 func blocked_text() -> String:
 	var lines: PackedStringArray = []

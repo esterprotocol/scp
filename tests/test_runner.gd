@@ -132,6 +132,7 @@ func run() -> void:
 	await ConstructionTests.new().run(self, game)
 	await DemolitionTests.new().run(self, game)
 	await SaveTests.new().run(self, game)
+	await DoorAreaTests.new().run(self, game)
 	game.queue_free()
 	await process_frame
 	print("RESULT: %d checks, %d failures" % [checks, failures])

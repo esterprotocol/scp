@@ -6,6 +6,10 @@ signal save_requested
 signal load_requested
 signal mode_requested(planning: bool)
 signal demolish_requested
+signal door_requested
+signal area_requested
+signal area_type_requested(kind: int)
+signal toggle_door_requested
 signal authorize_requested
 signal cancel_active_requested
 signal cancel_all_requested
@@ -20,6 +24,11 @@ var load_button: Button
 var select_button: Button
 var plan_button: Button
 var demolish_button: Button
+var door_button: Button
+var area_button: Button
+var area_type: OptionButton
+var toggle_door_button: Button
+var cell_label: Label
 var authorize_button: Button
 var cancel_active_button: Button
 var cancel_all_button: Button
@@ -60,11 +69,23 @@ func _ready() -> void:
 	select_button = add_button(box, "Selecionar", func() -> void: mode_requested.emit(false))
 	plan_button = add_button(box, "Planejar parede", func() -> void: mode_requested.emit(true))
 	demolish_button = add_button(box, "Demolir", func() -> void: demolish_requested.emit())
+	door_button = add_button(box, "Porta", func() -> void: door_requested.emit())
+	area_button = add_button(box, "Área", func() -> void: area_requested.emit())
 	select_button.toggle_mode = true
 	plan_button.toggle_mode = true
 	demolish_button.toggle_mode = true
+	door_button.toggle_mode = true
+	area_button.toggle_mode = true
+	area_type = OptionButton.new()
+	for index in GridState.AREA_NAMES.size():
+		area_type.add_item(GridState.AREA_NAMES[index], index)
+	area_type.item_selected.connect(func(index: int) -> void: area_type_requested.emit(index))
+	box.add_child(area_type)
 	box.add_child(HSeparator.new())
 	selection_label = add_label(box, "")
+	cell_label = add_label(box, "Célula: nenhuma")
+	toggle_door_button = add_button(box, "Abrir/fechar porta", func() -> void: toggle_door_requested.emit())
+	toggle_door_button.disabled = true
 	state_label = add_label(box, "")
 	destination_label = add_label(box, "")
 	task_label = add_label(box, "Tarefa atual: nenhuma")
@@ -95,7 +116,9 @@ func _ready() -> void:
 	save_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(HSeparator.new())
-	add_label(box, "CONTROLES\nSelecionar: esquerdo seleciona;\ndireito move.\nPlanejar: esquerdo marca;\ndireito cancela obra.\nDemolir: esquerdo solicita;\ndireito cancela tarefa.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint não autorizado\nDourado: construção autorizada\nLaranja: demolição solicitada\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
+	var controls_label := add_label(box, "CONTROLES\nSelecionar: esquerdo escolhe engenheiro ou porta; direito move.\nPlanejar: esquerdo marca; direito cancela obra.\nDemolir/Porta: esquerdo solicita; direito cancela tarefa.\nÁrea: escolha tipo e pinte com esquerdo.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint não autorizado\nDourado: construção autorizada\nLaranja: demolição solicitada\nRoxo: porta/instalação\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
+	controls_label.custom_minimum_size.x = 220
+	controls_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	get_viewport().size_changed.connect(func() -> void: scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0))
 	scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0)
 
@@ -111,11 +134,35 @@ func set_planning(value: bool) -> void:
 	select_button.set_pressed_no_signal(not value)
 	plan_button.set_pressed_no_signal(value)
 	demolish_button.set_pressed_no_signal(false)
+	door_button.set_pressed_no_signal(false)
+	area_button.set_pressed_no_signal(false)
 
 func set_demolishing() -> void:
 	select_button.set_pressed_no_signal(false)
 	plan_button.set_pressed_no_signal(false)
 	demolish_button.set_pressed_no_signal(true)
+	door_button.set_pressed_no_signal(false)
+	area_button.set_pressed_no_signal(false)
+
+func set_door_mode() -> void:
+	set_planning(false)
+	select_button.set_pressed_no_signal(false)
+	door_button.set_pressed_no_signal(true)
+
+func set_area_mode() -> void:
+	set_planning(false)
+	select_button.set_pressed_no_signal(false)
+	area_button.set_pressed_no_signal(true)
+
+func refresh_cell(grid: GridState, cell: Vector2i) -> void:
+	if not grid.contains(cell):
+		cell_label.text = "Célula: nenhuma"
+		toggle_door_button.disabled = true
+		return
+	var description := "Porta aberta" if grid.doors.get(cell, false) else "Porta fechada" if grid.doors.has(cell) else "Parede" if grid.walls.has(cell) else "Piso"
+	cell_label.text = "Célula (%d, %d): %s\nÁrea: %s" % [cell.x, cell.y, description, GridState.AREA_NAMES[grid.area_at(cell)]]
+	toggle_door_button.disabled = not grid.doors.has(cell)
+	toggle_door_button.text = "Fechar porta" if grid.doors.get(cell, false) else "Abrir porta"
 
 func refresh_construction(construction: Construction) -> void:
 	var active := construction.active

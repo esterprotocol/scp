@@ -1,4 +1,21 @@
-# Progresso — entrega 05: verificação gráfica
+# Progresso — entrega 06: portas e áreas designadas
+
+## Base e implementação
+
+- Base confirmada antes das alterações: `feat/visual-smoke-check`, commit `ec3a2b2418b37811b39ccfdb5856ae1896377227`; `AGENTS.md` lido. Branch desta entrega: `feat/doors-and-zones`, sem merge na `main`.
+- Godot `4.6.3.stable.official.7d41c59c4` e Compatibility mantidos. A grade agora guarda paredes, portas e áreas em estruturas separadas. Portas fechadas bloqueiam a BFS; abertas permitem passagem. Abrir/fechar emite alteração da grade e reavalia rotas e tarefas.
+- Modo Porta solicita instalação física em parede existente pela fila única; tempo configurável `DOOR_INSTALL_SECONDS = 1.5`. Cancelar preserva a parede; concluir cria porta fechada. Demolição física aceita portas e deixa piso livre ao concluir. Painel e mapa mostram porta aberta/fechada, instalação, alvo e progresso.
+- Modo Área pinta células transitáveis, inclusive por arraste, com Sem área, Alojamento, Refeitório ou Contenção. Dados independentes da estrutura construída; desenho com cores suaves. Painel mostra o tipo da célula selecionada. Reiniciar restaura as paredes originais e limpa portas/áreas.
+- Save JSON passa a esquema 2, com listas explícitas de portas e áreas, ferramenta/tipo e célula selecionada; valida tudo antes de aplicar. Saves válidos do esquema 1 continuam legíveis. Restauração mantém instalação parcial, progresso e estado aberto/fechado, sem eventos intermediários.
+
+## Verificado e pendente
+
+- `bash tools/validate.sh`: **963 verificações, 0 falhas**; importação do projeto e execução headless da cena principal concluídas. Os cenários anteriores permanecem na suíte; os novos verificam instalação/cancelamento/conclusão de porta, rota aberta/fechada, retomada de obra bloqueada ao abrir, invalidação de rota ao fechar, demolição, áreas e persistência, leitura do esquema 1 e reinício.
+- Execução gráfica real em Xvfb/Mesa llvmpipe, OpenGL Compatibility, 1280×720: três capturas adicionais `07`–`09` em `docs/screenshots/`, após aguardar frames. Inspeção com ferramenta de visão confirmou porta aberta/fechada distinta, área suave, trabalho e progresso legíveis, painel rolável e botões acessíveis. A primeira captura mostrou o painel avançando sobre o mapa por causa do texto de controles; após quebra de linha, a recaptura confirmou a largura anterior e mapa desobstruído.
+- Teste manual de cliques, arraste, animação contínua e monitor/driver físico segue pendente. Os estados gráficos foram preparados por métodos reais do jogo; nenhuma interação humana foi testada.
+- Sem Classe-D, necessidades, economia, SCPs ou objetos que tornem áreas operacionais. Áreas não exigem perímetro fechado nesta entrega.
+
+## Histórico — entrega 05: verificação gráfica
 
 ## Base e ambiente
 

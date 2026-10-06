@@ -36,7 +36,11 @@ func set_selected(value: bool) -> void:
 
 func state_text() -> String:
 	if working:
-		return "Demolindo parede" if work_action == "Demolir" else "Construindo parede"
+		if work_action == "Demolir":
+			return "Demolindo parede/porta"
+		if work_action == "Instalar porta":
+			return "Instalando porta"
+		return "Construindo parede"
 	if construction_busy:
 		return "Indo para obra"
 	return "Em movimento" if not route.is_empty() else "Parado"

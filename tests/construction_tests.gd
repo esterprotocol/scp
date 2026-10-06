@@ -180,9 +180,14 @@ func run(harness: SceneTree, scene: Node2D) -> void:
 	check(jobs.blueprints.has(Vector2i(7, 5)), "planning click marks individual cell")
 	runner.click(runner.root, Vector2(40, 40), MOUSE_BUTTON_LEFT)
 	check(jobs.blueprints.size() == 1, "panel click does not paint on map")
+	var scroll: ScrollContainer = game.hud.get_child(0).get_child(0)
+	scroll.ensure_control_visible(game.hud.authorize_button)
+	await runner.process_frame
 	runner.click(runner.root, game.hud.authorize_button.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 	runner.click(runner.root, game.hud.authorize_button.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 	check(jobs.tasks.size() == 1, "authorize UI repetition does not duplicate")
+	scroll.scroll_vertical = 0
+	await runner.process_frame
 	runner.click(runner.root, transform * grid.center(Vector2i(7, 5)), MOUSE_BUTTON_RIGHT)
 	check(jobs.blueprints.is_empty() and jobs.tasks.is_empty(), "planning right click cancels individual work")
 	runner.click(runner.root, game.hud.select_button.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
