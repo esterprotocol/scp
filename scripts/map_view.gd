@@ -3,6 +3,7 @@ extends Node2D
 
 var grid: GridState
 var engineer: Engineer
+var construction: Construction
 var hovered := Vector2i(-1, -1)
 
 func _process(_delta: float) -> void:
@@ -21,6 +22,16 @@ func _draw() -> void:
 			if not grid.is_walkable(cell):
 				color = Color("647782")
 			draw_rect(rect.grow(-1), color)
+	if construction != null:
+		for cell: Vector2i in construction.blueprints:
+			var rect := Rect2(Vector2(cell) * size, Vector2.ONE * size).grow(-4)
+			var color := Color("62b9ef")
+			if construction.tasks.has(cell):
+				color = Color("f2867f") if construction.tasks[cell].status == "Bloqueada" else Color("e8b95c")
+			draw_rect(rect, Color(color, 0.18))
+			draw_rect(rect, color, false, 2)
+			draw_line(rect.position, rect.end, color, 1, true)
+			draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), color, 1, true)
 	var last := engineer.position
 	for cell in engineer.route:
 		var next := grid.center(cell)

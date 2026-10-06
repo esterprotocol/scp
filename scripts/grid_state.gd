@@ -1,9 +1,15 @@
 class_name GridState
 extends RefCounted
 
+signal changed
+
 var walls: Dictionary = {}
 
 func _init() -> void:
+	reset()
+
+func reset() -> void:
+	walls.clear()
 	for y in range(3, 19):
 		if y != 12:
 			walls[Vector2i(10, y)] = true
@@ -14,6 +20,14 @@ func _init() -> void:
 		for y in range(18, 22):
 			if x == 18 or x == 21 or y == 18 or y == 21:
 				walls[Vector2i(x, y)] = true
+	changed.emit()
+
+func add_wall(cell: Vector2i) -> bool:
+	if not is_walkable(cell):
+		return false
+	walls[cell] = true
+	changed.emit()
+	return true
 
 func contains(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < GameSettings.GRID_SIZE.x and cell.y < GameSettings.GRID_SIZE.y

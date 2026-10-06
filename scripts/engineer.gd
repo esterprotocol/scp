@@ -7,10 +7,13 @@ var grid: GridState
 var cell := GameSettings.SPAWN
 var destination := GameSettings.SPAWN
 var selected := false
+var construction_busy := false
+var working := false
 var route: Array[Vector2i] = []
 
 func setup(state: GridState) -> void:
 	grid = state
+	grid.changed.connect(_on_grid_changed)
 	reset()
 
 func reset() -> void:
@@ -19,6 +22,8 @@ func reset() -> void:
 	position = grid.center(cell)
 	route.clear()
 	selected = false
+	construction_busy = false
+	working = false
 	queue_redraw()
 	changed.emit()
 
@@ -28,9 +33,48 @@ func set_selected(value: bool) -> void:
 	changed.emit()
 
 func state_text() -> String:
+	if working:
+		return "Construindo parede"
+	if construction_busy:
+		return "Indo para obra"
 	return "Em movimento" if not route.is_empty() else "Parado"
 
 func move_to(goal: Vector2i) -> String:
+	if construction_busy:
+		return "Ordem recusada: engenheiro em obra. Cancele a tarefa para liberá-lo."
+	return _set_destination(goal)
+
+func move_for_task(goal: Vector2i) -> void:
+	_set_destination(goal)
+
+func occupies(target: Vector2i) -> bool:
+	# Protect both ends of the segment, including the engineer's body while
+	# crossing a cell boundary. Future cells in a route are not reservations.
+	return target == cell or target == grid.to_cell(position) or (not route.is_empty() and target == route[0])
+
+func stop_after_segment() -> void:
+	if not route.is_empty() and position != grid.center(cell):
+		route = [route[0]]
+		destination = route[0]
+	else:
+		route.clear()
+		destination = cell
+	changed.emit()
+
+func _on_grid_changed() -> void:
+	for target in route:
+		if not grid.is_walkable(target):
+			# Drop the affected route without snapping the unit to a center.
+			# Construction never places a wall on either occupied segment end.
+			if not route.is_empty() and not grid.is_walkable(route[0]):
+				route = [cell] if position != grid.center(cell) else []
+			else:
+				stop_after_segment()
+			destination = cell if route.is_empty() else route[-1]
+			changed.emit()
+			return
+
+func _set_destination(goal: Vector2i) -> String:
 	if not grid.contains(goal):
 		return "Destino inválido: fora do mapa."
 	if not grid.is_walkable(goal):

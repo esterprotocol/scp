@@ -4,6 +4,7 @@ extends RefCounted
 const GRID_SIZE := Vector2i(24, 24)
 const CELL_SIZE := 32
 const ENGINEER_SPEED := 128.0
+const WALL_BUILD_SECONDS := 2.0
 const SPAWN := Vector2i(4, 5)
 const CAMERA_SPEED := 420.0
 const ZOOM_MIN := 0.65

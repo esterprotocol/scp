@@ -124,6 +124,7 @@ func run() -> void:
 	click(root, transform * engineer.position, MOUSE_BUTTON_LEFT)
 	click(root, transform * grid.center(Vector2i(6, 6)), MOUSE_BUTTON_LEFT)
 	check(not engineer.selected, "clicking floor deselects")
+	await ConstructionTests.new().run(self, game)
 	game.queue_free()
 	await process_frame
 	print("RESULT: %d checks, %d failures" % [checks, failures])
