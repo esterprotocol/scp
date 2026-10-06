@@ -4,6 +4,9 @@ extends Node
 signal changed
 
 const NONE := Vector2i(-1, -1)
+const BUILD := "Construir"
+const DEMOLISH := "Demolir"
+const UNSAFE_EXIT := "Construção bloquearia a saída do engenheiro"
 
 var grid: GridState
 var engineer: Engineer
@@ -23,12 +26,14 @@ func setup(state: GridState, worker: Engineer) -> void:
 func _mark_dirty() -> void:
 	dirty = true
 
-func target_reason(target: Vector2i) -> String:
+func target_reason(target: Vector2i, action: String = BUILD, check_occupation: bool = true) -> String:
 	if not grid.contains(target):
 		return "Fora do mapa."
+	if action == DEMOLISH:
+		return "" if grid.walls.has(target) else "Não existe parede nessa célula."
 	if not grid.is_walkable(target):
 		return "Já existe uma parede nessa célula."
-	if engineer.occupies(target):
+	if check_occupation and engineer.occupies(target):
 		return "Célula ocupada pelo engenheiro."
 	return ""
 
@@ -42,11 +47,25 @@ func plan(target: Vector2i) -> String:
 	changed.emit()
 	return "Blueprint planejado. Autorize para iniciar a obra."
 
+func request_demolition(target: Vector2i) -> String:
+	var reason := target_reason(target, DEMOLISH)
+	if not reason.is_empty():
+		return "Não é possível demolir: " + reason
+	if tasks.has(target):
+		return "Já existe uma tarefa nessa célula."
+	tasks[target] = _new_task(DEMOLISH)
+	dirty = true
+	changed.emit()
+	return "Demolição solicitada. A parede permanece até concluir o trabalho."
+
+func _new_task(action: String) -> Dictionary:
+	return {"action": action, "status": "Na fila", "reason": "", "elapsed": 0.0, "preserve_exit": false}
+
 func authorize() -> String:
 	var count := 0
 	for target: Vector2i in blueprints:
 		if not tasks.has(target):
-			tasks[target] = {"status": "Na fila", "reason": "", "elapsed": 0.0}
+			tasks[target] = _new_task(BUILD)
 			count += 1
 	dirty = true
 	changed.emit()
@@ -61,7 +80,7 @@ func _release_worker() -> void:
 	dirty = true
 
 func cancel(target: Vector2i) -> String:
-	if not blueprints.has(target):
+	if not blueprints.has(target) and not tasks.has(target):
 		return "Não há blueprint ou tarefa nessa célula."
 	if active == target:
 		_release_worker()
@@ -69,7 +88,7 @@ func cancel(target: Vector2i) -> String:
 	blueprints.erase(target)
 	dirty = true
 	changed.emit()
-	return "Obra cancelada; blueprint e tarefa removidos."
+	return "Trabalho cancelado; tarefa e marcação removidas."
 
 func cancel_active() -> String:
 	if active == NONE:
@@ -103,13 +122,20 @@ func _block(target: Vector2i, reason: String) -> void:
 		_release_worker()
 	changed.emit()
 
+func _has_exit(start: Vector2i, hypothetical_wall: Vector2i = NONE) -> bool:
+	# Pure read: an extra blocked cell is passed to BFS, never to GridState.
+	return not GridNavigation.find_path(grid, start, GameSettings.EXIT_CELL, hypothetical_wall).is_empty()
+
+func _safe_work_cell(target: Vector2i, candidate: Vector2i) -> bool:
+	return not tasks[target].preserve_exit or _has_exit(candidate, target)
+
 func _choose_work_cell(target: Vector2i) -> Vector2i:
 	var best := NONE
 	var best_length := 100000
 	for direction: Vector2i in GridNavigation.DIRECTIONS:
 		var candidate := target + direction
 		var path := GridNavigation.find_path(grid, engineer.cell, candidate)
-		if not path.is_empty() and path.size() < best_length:
+		if not path.is_empty() and (tasks[target].action == DEMOLISH or _safe_work_cell(target, candidate)) and path.size() < best_length:
 			best = candidate
 			best_length = path.size()
 	return best
@@ -119,25 +145,34 @@ func _schedule() -> void:
 		return
 	dirty = false
 	for target: Vector2i in tasks:
-		var reason := target_reason(target)
+		var action: String = tasks[target].action
+		var reason := target_reason(target, action)
 		if not reason.is_empty():
 			_block(target, reason)
 			continue
+		tasks[target].preserve_exit = action == BUILD and (tasks[target].preserve_exit or _has_exit(engineer.cell))
 		var adjacent := _choose_work_cell(target)
 		if adjacent == NONE:
-			_block(target, "Obra inacessível: nenhuma célula ortogonal adjacente tem caminho.")
+			var reachable := false
+			for direction: Vector2i in GridNavigation.DIRECTIONS:
+				if not GridNavigation.find_path(grid, engineer.cell, target + direction).is_empty():
+					reachable = true
+			_block(target, UNSAFE_EXIT if action == BUILD and reachable else "Obra inacessível: nenhuma célula ortogonal adjacente tem caminho.")
 			continue
 		active = target
 		work_cell = adjacent
 		tasks[target].status = "Deslocando"
 		tasks[target].reason = ""
 		engineer.construction_busy = true
+		engineer.work_action = action
 		engineer.move_for_task(work_cell)
 		changed.emit()
 		return
 
 func _work_reason() -> String:
-	var reason := target_reason(active)
+	# Travel may cross the still-walkable blueprint to reach the safe side.
+	# Occupation must be checked once travel finishes, before work/completion.
+	var reason := target_reason(active, tasks[active].action, engineer.route.is_empty())
 	if not reason.is_empty():
 		return reason
 	if not grid.is_walkable(work_cell):
@@ -145,6 +180,11 @@ func _work_reason() -> String:
 	var difference := work_cell - active
 	if absi(difference.x) + absi(difference.y) != 1:
 		return "Posição de trabalho não é ortogonal adjacente."
+	if tasks[active].action == BUILD:
+		# Preserve the obligation from dispatch even if access changes in transit.
+		# Also enforce any exit that has become available since dispatch.
+		if (tasks[active].preserve_exit or _has_exit(work_cell)) and not _has_exit(work_cell, active):
+			return UNSAFE_EXIT
 	return ""
 
 func _process(delta: float) -> void:
@@ -164,28 +204,32 @@ func _process(delta: float) -> void:
 	# including the completion tick. Only a completed task changes navigation.
 	if not engineer.working:
 		engineer.working = true
-		tasks[active].status = "Construindo"
+		tasks[active].status = "Demolindo" if tasks[active].action == DEMOLISH else "Construindo"
 		changed.emit()
 		return
 	tasks[active].elapsed += maxf(delta, 0.0)
-	if tasks[active].elapsed >= GameSettings.WALL_BUILD_SECONDS:
+	if tasks[active].elapsed >= work_seconds():
 		var completed := active
-		if grid.add_wall(completed):
+		var success := grid.remove_wall(completed) if tasks[completed].action == DEMOLISH else grid.add_wall(completed)
+		if success:
 			tasks.erase(completed)
 			blueprints.erase(completed)
 			_release_worker()
 		else:
-			_block(completed, "A célula deixou de estar livre antes da conclusão.")
+			_block(completed, "O alvo mudou antes da conclusão.")
 	changed.emit()
 
 func progress() -> float:
 	if active == NONE:
 		return 0.0
-	return clampf(float(tasks[active].elapsed) / GameSettings.WALL_BUILD_SECONDS, 0.0, 1.0)
+	return clampf(float(tasks[active].elapsed) / work_seconds(), 0.0, 1.0)
+
+func work_seconds() -> float:
+	return GameSettings.WALL_DEMOLISH_SECONDS if tasks[active].action == DEMOLISH else GameSettings.WALL_BUILD_SECONDS
 
 func blocked_text() -> String:
 	var lines: PackedStringArray = []
 	for target: Vector2i in tasks:
 		if tasks[target].status == "Bloqueada":
-			lines.append("(%d, %d): %s" % [target.x, target.y, tasks[target].reason])
+			lines.append("%s (%d, %d): %s" % [tasks[target].action, target.x, target.y, tasks[target].reason])
 	return "\n".join(lines) if not lines.is_empty() else "Nenhum bloqueio."

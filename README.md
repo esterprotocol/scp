@@ -1,8 +1,8 @@
 # Site Director
 
-Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação e planejamento/construção de paredes por um engenheiro. Sem assets externos, plugins ou dependências de jogo.
+Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura e demolição física por um engenheiro. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega de construção está na branch `feat/construction-basic`, criada da base `feat/site-director-prototype`, commit `175a9f4`. A `main` ainda não continha o protótipo na criação desta entrega.
+A entrega atual está na branch `feat/demolition-safe-access`, criada da base verificada `feat/construction-basic`, commit `758c204`. A `main` ainda não contém as entregas anteriores.
 
 ## Executar
 
@@ -33,6 +33,9 @@ bash tools/godot.sh
 | Botão “Planejar parede” | Ativar planejamento por células individuais |
 | Botão esquerdo, no modo Planejar parede | Marcar uma célula como blueprint |
 | Botão direito, no modo Planejar parede | Cancelar blueprint/tarefa da célula |
+| Botão “Demolir” | Ativar seleção de paredes para demolição |
+| Botão esquerdo sobre parede, no modo Demolir | Solicitar uma tarefa de demolição, sem remover a parede |
+| Botão direito, no modo Demolir | Cancelar a tarefa da célula, preservando a parede |
 | Botão “Autorizar planejados” | Criar uma tarefa para cada blueprint ainda não autorizado |
 | Botão “Cancelar tarefa atual” | Remover a obra atual e liberar o engenheiro |
 | Botão “Cancelar todas as obras” | Remover todos os blueprints e trabalhos incompletos |
@@ -41,7 +44,7 @@ bash tools/godot.sh
 | Roda do mouse | Zoom entre 0,65× e 1,8× |
 | Botão “Reiniciar cenário” | Restaurar cenário original, grade, obras, modo, engenheiro, câmera e painel |
 
-O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints são contornos cruzados: **azul** antes da autorização, **dourado** após autorização e **vermelho** quando bloqueados. Todos permanecem transitáveis até a conclusão. O painel mostra seleção, estado, destino, tarefa, progresso, contagem de obras e motivos de bloqueio por célula. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem planejam paredes no mapa.
+O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints são contornos cruzados: **azul** antes da autorização, **dourado** após autorização e **vermelho** quando bloqueados. Todos permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; a parede continua sólida durante o trabalho. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, estado, destino, ação, alvo, progresso, contagem de obras e motivos de bloqueio por célula. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
 
 ## Regras do protótipo
 
@@ -56,13 +59,29 @@ O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blue
 
 1. Ative **Planejar parede** e marque células livres com o botão esquerdo. Não é permitido planejar fora do mapa, sobre paredes ou sobre o engenheiro (incluindo as duas pontas do segmento em movimento).
 2. Pressione **Autorizar planejados**. Há uma tarefa por célula; repetir a autorização não cria duplicatas. Não é necessário selecionar o engenheiro, formar uma sala ou fechar um perímetro. A abertura original `(10, 12)` é planejável.
-3. Quando livre e no centro de uma célula, o engenheiro procura a posição ortogonal adjacente mais próxima com caminho. Uma ordem manual já em trânsito termina antes de assumir uma tarefa.
+3. Quando livre e no centro de uma célula, o engenheiro procura a posição ortogonal adjacente segura mais próxima com caminho. Uma ordem manual já em trânsito termina antes de assumir uma tarefa. A posição mais próxima pode ser descartada para preservar a saída.
 4. O engenheiro caminha até essa posição e trabalha por **2 segundos**, configurados em `GameSettings.WALL_BUILD_SECONDS`. O tempo de deslocamento não conta como trabalho. Somente ao completar a duração a parede vira obstáculo.
 5. Antes de começar e em cada atualização de trabalho, inclusive na conclusão, são revalidados alvo livre, ocupação e posição adjacente transitável. Obras inacessíveis recebem um motivo e são puladas para permitir outras acessíveis.
 
 Mudanças na grade invalidam rotas afetadas: o engenheiro termina somente o segmento ainda seguro, sem teleportar nem atravessar a nova parede. Tarefas são reavaliadas quando a grade ou a posição/estado do engenheiro muda e após conclusão/cancelamento. Se perder acesso, a obra volta a aguardar acesso, com seu progresso de trabalho reiniciado.
 
-Durante uma tarefa (incluindo deslocamento), ordens manuais de movimento são recusadas. Cancele a tarefa atual ou clique direito na sua célula no modo Planejar para liberar o engenheiro. Cancelar trabalho incompleto apaga tarefa e blueprint; em trânsito, apenas o trecho corrente termina, e uma nova ordem manual pode redirecionar a partir desse centro. Paredes já concluídas permanecem até o reinício; não há demolição.
+Durante uma tarefa (incluindo deslocamento), ordens manuais de movimento são recusadas. Cancele a tarefa atual ou clique direito na sua célula no modo Planejar/Demolir para liberar o engenheiro. Cancelar trabalho incompleto apaga tarefa e marcação; em trânsito, apenas o trecho corrente termina, e uma nova ordem manual pode redirecionar a partir desse centro.
+
+## Saída segura
+
+`GameSettings.EXIT_CELL` define a saída de referência, inicialmente igual a `SPAWN`, `(4, 5)`. Quando existe caminho até a saída antes da construção, a parede só pode ser construída de uma posição que ainda tenha esse caminho **com o alvo tratado como parede**. A busca testa todos os vizinhos alcançáveis e prefere o mais próximo dentre os seguros, mesmo se for preciso atravessar o blueprint ainda transitável para chegar ao outro lado.
+
+Se os vizinhos alcançáveis não forem seguros, a tarefa fica bloqueada com **“Construção bloquearia a saída do engenheiro”**. A obrigação de preservar a saída é mantida nas tentativas posteriores da mesma tarefa e revalidada durante a obra, inclusive imediatamente antes de concluir. Uma saída que se torna acessível após o início também é protegida. Se o engenheiro já estava isolado antes de qualquer tentativa, não há caminho existente a preservar; obras ainda precisam de acesso adjacente normal.
+
+A simulação passa uma célula bloqueada adicional para a BFS; não adiciona/remove paredes reais nem emite eventos de grade. Demolições acessíveis continuam sendo executadas mesmo se uma construção estiver bloqueada, e mudanças reais da grade reavaliam a fila.
+
+## Demolição física
+
+Ative **Demolir** e clique esquerdo numa parede original ou construída. A solicitação já cria uma tarefa na mesma fila da construção; repetir o pedido não duplica a tarefa, e não é necessário pressionar Autorizar. Apenas um trabalho pode ocupar o engenheiro por vez.
+
+O engenheiro alcança um vizinho ortogonal transitável e trabalha por **1,5 segundo**, configurado em `GameSettings.WALL_DEMOLISH_SECONDS`. Até a conclusão, a parede continua bloqueando a navegação. Ao concluir, a grade remove a parede, emite a alteração e novas rotas/obras passam a poder usar a abertura. Alvo existente e posição adjacente são revalidados antes de trabalhar e concluir; uma tarefa sem acesso mostra o motivo e é pulada.
+
+Clique direito na parede no modo Demolir, use **Cancelar tarefa atual** ou **Cancelar todas as obras** para cancelar antes da conclusão. A parede permanece e o engenheiro fica disponível. Reiniciar restaura exatamente as paredes originais, incluindo as demolidas, remove paredes novas e limpa as duas ações da fila.
 
 ## Validação automatizada
 
@@ -77,7 +96,9 @@ Cobertura anterior preservada: rota livre e mínima, desvio pela passagem, pared
 
 Cobertura de construção em `tests/construction_tests.gd`: blueprint transitável; autorização sem duplicação; trabalho adjacente e duração/progresso; rejeição de ordens manuais; cancelamento parado e em trânsito sem teleportar; parede concluída muda navegação; tarefa inacessível não bloqueia acessíveis; ocupação e alvo revalidados; bloqueios reavaliados por mudanças da grade; rota invalidada; nova posição de trabalho após perder acesso; controles de planejamento/autorização/cancelamento pelo viewport; construção da abertura original; reinício integral.
 
-Validação nesta entrega: **326 verificações, zero falhas**, incluindo as 176 anteriores; importação e execução headless concluídas com `bash tools/validate.sh`. A execução gráfica da entrega anterior foi tentada, mas o ambiente não oferecia X11/Wayland: `X11 Display is not available` e `Can't connect to a Wayland display`. Headless não valida pixels, aparência ou interação humana; a validação visual desta entrega continua explicitamente pendente em uma sessão gráfica.
+Cobertura adicional em `tests/demolition_tests.gd`: permanência da parede durante trabalho; cancelamento em trânsito e durante demolição; duração/progresso; abertura de rota inacessível; pedido repetido; demolição de paredes originais e construídas; fila exclusiva mista; bloqueio do último acesso; posição alternativa segura com deslocamento pelo blueprint; simulação sem mutação/eventos; revalidação antes de concluir; demolição que restaura saída e retoma obra bloqueada; controles pelo viewport; reinício de paredes removidas/construídas, filas e trabalhador.
+
+Validação nesta entrega: **730 verificações, zero falhas**, com todos os cenários anteriores preservados; importação e execução headless concluídas com `bash tools/validate.sh`. A execução gráfica da primeira entrega foi tentada, mas o ambiente não oferecia X11/Wayland: `X11 Display is not available` e `Can't connect to a Wayland display`. Headless não valida pixels, aparência ou interação humana; a validação visual desta entrega continua explicitamente pendente em uma sessão gráfica.
 
 ## Teste manual visual (pendente)
 
@@ -94,9 +115,14 @@ Validação nesta entrega: **326 verificações, zero falhas**, incluindo as 176
 11. Planeje primeiro `(19, 19)` (sala inacessível) e depois `(6, 5)`. Autorize: a primeira deve mostrar motivo de bloqueio; a segunda deve ser executada. No modo Planejar, cancele individualmente a obra bloqueada com o botão direito.
 12. Planeje a abertura `(10, 12)` e autorize: deve ser construída sem exigir uma sala fechada. Planeje outras paredes, conclua uma, deixe outra em andamento e reinicie: todas as paredes novas, blueprints e tarefas devem sumir, restaurando também a abertura original.
 13. Clique nos botões e no painel com o modo Planejar ativo: nenhum blueprint deve aparecer no mapa por causa desses cliques. Confira legibilidade das razões e acesso a todos os botões pela rolagem do painel.
+14. Reinicie, ative **Demolir** e clique na parede `(18, 19)`. Repita o pedido: deve existir uma tarefa. Durante o deslocamento/trabalho, a parede deve permanecer sólida e o painel deve indicar Demolir e progresso. Cancele: a parede permanece. Solicite novamente e aguarde a conclusão: `(19, 19)` deve ficar alcançável pela nova abertura.
+15. Construa `(6, 5)`, depois solicite sua demolição. Confira que ambas as ações usam um trabalhador, e que a parede só desaparece após o tempo de trabalho. Clique no painel em modo Demolir: nenhum pedido deve ser criado no mapa.
+16. Para um exemplo de proteção da referência, mova o engenheiro de `(4, 5)` para `(7, 5)` e planeje a célula `(4, 5)`. Autorize: deve aparecer a mensagem exata de saída bloqueada, pois construir sobre a própria saída não permite preservá-la. Uma demolição acessível solicitada em paralelo deve prosseguir.
+17. Para a posição alternativa segura, reinicie; construa as paredes `(6, 4)`, `(7, 4)`, `(8, 4)`, `(8, 5)`, `(8, 6)`, `(7, 6)` e `(6, 6)`. Mova o engenheiro para `(7, 5)` e planeje `(6, 5)`, a abertura desse pequeno recinto. O engenheiro deve cruzar a abertura e trabalhar do lado de fora `(5, 5)`, mantendo rota até `(4, 5)` após fechar. Os testes automatizados também verificam esse comportamento num corredor controlado.
+18. Reinicie com paredes originais demolidas, paredes novas e tarefas mistas incompletas: o mapa deve voltar exatamente ao original, com a abertura `(10, 12)`, engenheiro na origem, modo Selecionar e progresso zero.
 
 ## Organização e limite de escopo
 
-`grid_state.gd`: estado e alterações da grade; `navigation.gd`: busca de rotas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: blueprints, tarefas, escolha de posição, bloqueios e trabalho; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
+`grid_state.gd`: estado e alterações da grade; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção/demolição, blueprints, tarefas, posição segura, bloqueios e trabalho; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
 
-Portas, demolição, economia, necessidades, SCPs, combate, save/load e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.
+Portas, economia, necessidades, SCPs, combate, save/load e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.

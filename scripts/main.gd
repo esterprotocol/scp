@@ -7,6 +7,7 @@ var camera := SiteCamera.new()
 var hud := SiteHUD.new()
 var construction := Construction.new()
 var planning := false
+var demolishing := false
 
 func _ready() -> void:
 	map_view.grid = grid
@@ -22,6 +23,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.restart_requested.connect(reset_scenario)
 	hud.mode_requested.connect(set_planning)
+	hud.demolish_requested.connect(set_demolishing)
 	hud.authorize_requested.connect(func() -> void: hud.show_message(construction.authorize()))
 	hud.cancel_active_requested.connect(func() -> void: hud.show_message(construction.cancel_active()))
 	hud.cancel_all_requested.connect(func() -> void: hud.show_message(construction.cancel_all()))
@@ -50,12 +52,25 @@ func _on_construction_changed() -> void:
 
 func set_planning(value: bool) -> void:
 	planning = value
+	demolishing = false
 	hud.set_planning(value)
 	hud.show_message("Planejar: clique esquerdo marca; clique direito cancela blueprint/tarefa." if value else "Modo Selecionar: selecione o engenheiro para mover.")
+
+func set_demolishing() -> void:
+	planning = false
+	demolishing = true
+	hud.set_demolishing()
+	hud.show_message("Demolir: clique esquerdo solicita; clique direito cancela a tarefa. A parede só desaparece ao concluir.")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		var point: Vector2 = get_canvas_transform().affine_inverse() * event.position
+		if demolishing:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				hud.show_message(construction.request_demolition(grid.to_cell(point)))
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				hud.show_message(construction.cancel(grid.to_cell(point)))
+			return
 		if planning:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				hud.show_message(construction.plan(grid.to_cell(point)))

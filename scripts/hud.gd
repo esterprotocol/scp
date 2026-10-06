@@ -3,6 +3,7 @@ extends CanvasLayer
 
 signal restart_requested
 signal mode_requested(planning: bool)
+signal demolish_requested
 signal authorize_requested
 signal cancel_active_requested
 signal cancel_all_requested
@@ -14,6 +15,7 @@ var message_label: Label
 var restart_button: Button
 var select_button: Button
 var plan_button: Button
+var demolish_button: Button
 var authorize_button: Button
 var cancel_active_button: Button
 var cancel_all_button: Button
@@ -50,11 +52,13 @@ func _ready() -> void:
 	var title := add_label(box, "SITE DIRECTOR")
 	title.add_theme_font_size_override("font_size", 23)
 	title.add_theme_color_override("font_color", Color("64e6b6"))
-	add_label(box, "02 / OBRAS\nNavegação e construção")
+	add_label(box, "03 / OBRAS\nConstrução e demolição")
 	select_button = add_button(box, "Selecionar", func() -> void: mode_requested.emit(false))
 	plan_button = add_button(box, "Planejar parede", func() -> void: mode_requested.emit(true))
+	demolish_button = add_button(box, "Demolir", func() -> void: demolish_requested.emit())
 	select_button.toggle_mode = true
 	plan_button.toggle_mode = true
+	demolish_button.toggle_mode = true
 	box.add_child(HSeparator.new())
 	selection_label = add_label(box, "")
 	state_label = add_label(box, "")
@@ -81,7 +85,7 @@ func _ready() -> void:
 	restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	box.add_child(restart_button)
 	box.add_child(HSeparator.new())
-	add_label(box, "CONTROLES\nSelecionar: esquerdo seleciona;\ndireito move.\nPlanejar: esquerdo marca;\ndireito cancela obra.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint não autorizado\nDourado: obra autorizada\nVermelho: obra bloqueada\nCinza: parede concluída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
+	add_label(box, "CONTROLES\nSelecionar: esquerdo seleciona;\ndireito move.\nPlanejar: esquerdo marca;\ndireito cancela obra.\nDemolir: esquerdo solicita;\ndireito cancela tarefa.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint não autorizado\nDourado: construção autorizada\nLaranja: demolição solicitada\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
 	get_viewport().size_changed.connect(func() -> void: scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0))
 	scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0)
 
@@ -96,10 +100,16 @@ func add_button(parent: Node, text: String, action: Callable) -> Button:
 func set_planning(value: bool) -> void:
 	select_button.set_pressed_no_signal(not value)
 	plan_button.set_pressed_no_signal(value)
+	demolish_button.set_pressed_no_signal(false)
+
+func set_demolishing() -> void:
+	select_button.set_pressed_no_signal(false)
+	plan_button.set_pressed_no_signal(false)
+	demolish_button.set_pressed_no_signal(true)
 
 func refresh_construction(construction: Construction) -> void:
 	var active := construction.active
-	task_label.text = "Tarefa atual: nenhuma" if active == Construction.NONE else "Obra: (%d, %d) · %s" % [active.x, active.y, construction.tasks[active].status]
+	task_label.text = "Tarefa atual: nenhuma" if active == Construction.NONE else "%s (%d, %d)\n%s" % [construction.tasks[active].action, active.x, active.y, construction.tasks[active].status]
 	progress_bar.value = construction.progress() * 100.0
 	queue_label.text = "Blueprints: %d · Tarefas: %d" % [construction.blueprints.size(), construction.tasks.size()]
 	blocked_label.text = construction.blocked_text()

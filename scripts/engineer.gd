@@ -9,6 +9,7 @@ var destination := GameSettings.SPAWN
 var selected := false
 var construction_busy := false
 var working := false
+var work_action := "Construir"
 var route: Array[Vector2i] = []
 
 func setup(state: GridState) -> void:
@@ -24,6 +25,7 @@ func reset() -> void:
 	selected = false
 	construction_busy = false
 	working = false
+	work_action = "Construir"
 	queue_redraw()
 	changed.emit()
 
@@ -34,7 +36,7 @@ func set_selected(value: bool) -> void:
 
 func state_text() -> String:
 	if working:
-		return "Construindo parede"
+		return "Demolindo parede" if work_action == "Demolir" else "Construindo parede"
 	if construction_busy:
 		return "Indo para obra"
 	return "Em movimento" if not route.is_empty() else "Parado"

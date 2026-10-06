@@ -32,6 +32,12 @@ func _draw() -> void:
 			draw_rect(rect, color, false, 2)
 			draw_line(rect.position, rect.end, color, 1, true)
 			draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), color, 1, true)
+		for cell: Vector2i in construction.tasks:
+			if construction.tasks[cell].action == Construction.DEMOLISH:
+				var color := Color("f2867f") if construction.tasks[cell].status == "Bloqueada" else Color("ff994f")
+				draw_arc(grid.center(cell), 12, 0, TAU, 32, color, 2, true)
+				draw_line(grid.center(cell) - Vector2(8, 8), grid.center(cell) + Vector2(8, 8), color, 3, true)
+	draw_rect(Rect2(grid.center(GameSettings.EXIT_CELL) - Vector2(7, 7), Vector2(14, 14)), Color("64e6b6"), false, 2)
 	var last := engineer.position
 	for cell in engineer.route:
 		var next := grid.center(cell)

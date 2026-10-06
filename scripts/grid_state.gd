@@ -32,6 +32,13 @@ func add_wall(cell: Vector2i) -> bool:
 func contains(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < GameSettings.GRID_SIZE.x and cell.y < GameSettings.GRID_SIZE.y
 
+func remove_wall(cell: Vector2i) -> bool:
+	if not contains(cell) or not walls.has(cell):
+		return false
+	walls.erase(cell)
+	changed.emit()
+	return true
+
 func is_walkable(cell: Vector2i) -> bool:
 	return contains(cell) and not walls.has(cell)
 
