@@ -33,6 +33,19 @@ func _draw() -> void:
 					draw_line(rect.position + Vector2(5, 5), rect.position + Vector2(5, size - 5), door_color, 3)
 				else:
 					draw_line(rect.position + Vector2(5, size / 2.0), rect.position + Vector2(size - 5, size / 2.0), door_color, 3)
+			if grid.objects.has(cell):
+				var kind: int = grid.objects[cell]
+				var object_rect := rect.grow(-5)
+				var object_color: Color = GridState.OBJECT_COLORS[kind]
+				draw_rect(object_rect, object_color)
+				if kind == 1: # Bed and pillow.
+					draw_rect(Rect2(object_rect.position + Vector2(2, 2), Vector2(object_rect.size.x - 4, 5)), Color("dfeaf8"))
+				elif kind == 2: # Table top.
+					draw_rect(object_rect.grow(-5), Color("754e39"), false, 2)
+				elif kind == 3: # Seat back.
+					draw_line(object_rect.position + Vector2(3, 3), object_rect.position + Vector2(object_rect.size.x - 3, 3), Color("4d6940"), 3)
+				elif kind == 4: # Meal dispenser slot.
+					draw_rect(Rect2(object_rect.position + Vector2(3, 8), Vector2(object_rect.size.x - 6, 5)), Color("713f49"))
 	if construction != null:
 		for cell: Vector2i in construction.blueprints:
 			var rect := Rect2(Vector2(cell) * size, Vector2.ONE * size).grow(-4)
@@ -43,11 +56,20 @@ func _draw() -> void:
 			draw_rect(rect, color, false, 2)
 			draw_line(rect.position, rect.end, color, 1, true)
 			draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), color, 1, true)
+		for cell: Vector2i in construction.object_blueprints:
+			var rect := Rect2(Vector2(cell) * size, Vector2.ONE * size).grow(-4)
+			var color: Color = GridState.OBJECT_COLORS[construction.object_blueprints[cell]]
+			if construction.tasks.has(cell) and construction.tasks[cell].status == "Bloqueada":
+				color = Color("f2867f")
+			draw_rect(rect, Color(color, 0.14))
+			draw_rect(rect, color, false, 2)
+			draw_line(rect.position + Vector2(4, 4), rect.end - Vector2(4, 4), color, 2, true)
+			draw_line(Vector2(rect.end.x - 4, rect.position.y + 4), Vector2(rect.position.x + 4, rect.end.y - 4), color, 2, true)
 		for cell: Vector2i in construction.tasks:
-			if construction.tasks[cell].action in [Construction.DEMOLISH, Construction.INSTALL_DOOR]:
-				var color := Color("f2867f") if construction.tasks[cell].status == "Bloqueada" else (Color("ff994f") if construction.tasks[cell].action == Construction.DEMOLISH else Color("cf83e9"))
+			if construction.tasks[cell].action in [Construction.DEMOLISH, Construction.DEMOLISH_OBJECT, Construction.INSTALL_DOOR]:
+				var color := Color("f2867f") if construction.tasks[cell].status == "Bloqueada" else (Color("ff994f") if construction.tasks[cell].action in [Construction.DEMOLISH, Construction.DEMOLISH_OBJECT] else Color("cf83e9"))
 				draw_arc(grid.center(cell), 12, 0, TAU, 32, color, 2, true)
-				if construction.tasks[cell].action == Construction.DEMOLISH:
+				if construction.tasks[cell].action in [Construction.DEMOLISH, Construction.DEMOLISH_OBJECT]:
 					draw_line(grid.center(cell) - Vector2(8, 8), grid.center(cell) + Vector2(8, 8), color, 3, true)
 				else:
 					draw_line(grid.center(cell) - Vector2(8, 0), grid.center(cell) + Vector2(8, 0), color, 3, true)

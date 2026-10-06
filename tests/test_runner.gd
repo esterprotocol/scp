@@ -120,7 +120,8 @@ func run() -> void:
 	click(root, Vector2(40, 40), MOUSE_BUTTON_LEFT)
 	check(engineer.selected, "HUD consumes clicks without deselecting")
 	var scroll: ScrollContainer = game.hud.get_child(0).get_child(0)
-	scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
+	scroll.ensure_control_visible(game.hud.restart_button)
+	scroll.scroll_vertical += 120
 	await process_frame
 	click(root, game.hud.restart_button.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 	check(not engineer.selected and engineer.route.is_empty(), "pointer click activates restart button")
@@ -133,6 +134,7 @@ func run() -> void:
 	await DemolitionTests.new().run(self, game)
 	await SaveTests.new().run(self, game)
 	await DoorAreaTests.new().run(self, game)
+	await ObjectTests.new().run(self, game)
 	game.queue_free()
 	await process_frame
 	print("RESULT: %d checks, %d failures" % [checks, failures])

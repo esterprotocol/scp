@@ -1,8 +1,8 @@
 # Site Director
 
-Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
+Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas, objetos instalados e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega atual está na branch `feat/doors-and-zones`, criada da base verificada `feat/visual-smoke-check`, commit `ec3a2b2`. Sem merge automático na `main`.
+A entrega atual está na branch `feat/essential-objects`, criada da base verificada `feat/doors-and-zones`, commit `8a717dc`. Sem merge automático na `main`.
 
 ## Executar
 
@@ -41,6 +41,10 @@ bash tools/godot.sh
 | Esquerdo sobre uma porta no modo Selecionar; botão “Abrir/Fechar porta” | Selecionar e operar a porta; não fecha sobre o engenheiro |
 | Botão “Área”, seletor de tipo e esquerdo sobre piso | Pintar célula transitável; arrastar com esquerdo pinta outras células |
 | Tipo “Sem área” | Apagar designação da célula pintada |
+| Botão “Objeto” e seletor de tipo | Planejar Cama, Mesa de refeitório, Assento ou Distribuidor de refeições |
+| Esquerdo/direito, no modo Objeto | Criar blueprint transitável ou cancelar blueprint/obra incompleta |
+| Esquerdo sobre objeto no modo Selecionar | Mostrar tipo, área e pontos de interação disponíveis |
+| Esquerdo sobre objeto no modo Demolir | Solicitar demolição física; libera a célula só após concluir |
 | Botão “Autorizar planejados” | Criar uma tarefa para cada blueprint ainda não autorizado |
 | Botão “Cancelar tarefa atual” | Remover a obra atual e liberar o engenheiro |
 | Botão “Cancelar todas as obras” | Remover todos os blueprints e trabalhos incompletos |
@@ -51,13 +55,13 @@ bash tools/godot.sh
 | Botão “Salvar” | Substituir o slot manual pelo cenário atual |
 | Botão “Carregar” | Substituir o cenário atual pelo slot validado |
 
-O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints são contornos cruzados: **azul** antes da autorização, **dourado** após autorização e **vermelho** quando bloqueados. Todos permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; a parede ou porta continua no lugar durante o trabalho. Portas e instalações são **roxas** quando fechadas/em obra, com traço horizontal; portas abertas são **ciano**, com traço lateral. Áreas usam cores suaves: Alojamento azul, Refeitório verde, Contenção violeta. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, tipo de área da célula, estado da porta, destino, ação, alvo, progresso, contagem de obras e motivos de bloqueio. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
+O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints de parede são contornos cruzados **azuis** antes da autorização, **dourados** após autorização e **vermelhos** quando bloqueados. Blueprints de objeto usam contorno cruzado na cor do tipo; o objeto concluído é uma forma sólida. Todos os blueprints permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; o alvo continua no lugar durante o trabalho. Portas e instalações são **roxas** quando fechadas/em obra, com traço horizontal; portas abertas são **ciano**, com traço lateral. Áreas usam cores suaves: Alojamento azul, Refeitório verde, Contenção violeta. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, área, objeto, interação, estado da porta, destino, ação, alvo, progresso e motivos de bloqueio. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
 
 ## Regras do protótipo
 
 - Mapa de **24 × 24 células**, com **32 pixels** por célula; coordenadas `(x, y)` começam em `(0, 0)` no canto superior esquerdo.
 - Engenheiro começa em `(4, 5)` e anda a **128 px/s**.
-- Busca em largura (BFS) encontra uma rota mínima entre células de mesmo custo. Só há passos ortogonais: não atravessa paredes nem portas fechadas, e não corta quinas.
+- Busca em largura (BFS) encontra uma rota mínima entre células de mesmo custo. Só há passos ortogonais: não atravessa paredes, portas fechadas ou objetos concluídos, e não corta quinas.
 - Uma ordem durante o movimento termina o segmento atual antes de seguir a nova rota. Ordens inválidas preservam a rota e o destino anteriores, mostrando o motivo.
 - Parede em `x=10`, de `y=3` a `18`, com passagem em `y=12`; paredes adicionais e sala fechada entre `(18, 18)` e `(21, 21)`.
 - Dimensões, velocidade, posição inicial e limites da câmera estão centralizados em `scripts/settings.gd`. O cenário fixo é definido em `scripts/grid_state.gd`.
@@ -94,7 +98,15 @@ Clique direito na parede no modo Demolir, use **Cancelar tarefa atual** ou **Can
 
 No modo **Porta**, clique numa parede existente. O pedido entra na mesma fila de obras: o engenheiro chega a uma célula ortogonal adjacente e instala a porta por **1,5 segundo** (`GameSettings.DOOR_INSTALL_SECONDS`). Até terminar, a parede original continua sólida. Cancelar preserva essa parede. Ao concluir, a célula passa a ser uma porta fechada, que ainda bloqueia passagem. No modo **Selecionar**, clique na porta e use **Abrir porta** ou **Fechar porta** no painel. Abrir libera a passagem; fechar invalida rotas que a cruzariam e não é permitido enquanto o engenheiro ocupa a célula. Mudanças na porta reavaliam tarefas bloqueadas. O modo **Demolir** aceita portas abertas ou fechadas e só remove a porta após trabalho físico, deixando piso transitável. Reiniciar restaura paredes originais e remove todas as portas desta entrega.
 
-No modo **Área**, escolha **Sem área**, **Alojamento**, **Refeitório** ou **Contenção** e clique/arraste o botão esquerdo sobre células transitáveis. Cada célula guarda seu tipo independentemente das paredes, portas e blueprints; formas livres são aceitas, sem exigência de recinto fechado. O tipo aparece ao selecionar a célula. Áreas não afetam navegação e ainda não tornam salas operacionais: faltam objetos numa entrega futura. Reiniciar limpa as designações.
+No modo **Área**, escolha **Sem área**, **Alojamento**, **Refeitório** ou **Contenção** e clique/arraste o botão esquerdo sobre células transitáveis. Cada célula guarda seu tipo independentemente das paredes, portas, objetos e blueprints; formas livres são aceitas, sem exigência de recinto fechado. O tipo aparece ao selecionar a célula. Áreas não afetam navegação e ainda não tornam salas operacionais. Reiniciar limpa as designações.
+
+## Objetos essenciais
+
+No modo **Objeto**, selecione o tipo e clique numa célula transitável da área correta. **Cama** exige Alojamento; **Mesa de refeitório**, **Assento** e **Distribuidor de refeições** exigem Refeitório. A célula vira blueprint transitável. **Autorizar planejados** cria uma tarefa por célula na fila única do engenheiro. Ele chega a uma posição ortogonal adjacente e trabalha por **2 segundos** (`OBJECT_INSTALL_SECONDS`). Somente a conclusão cria o objeto sólido que bloqueia a navegação. Não é permitido colocar um objeto sobre parede, porta, outro objeto, engenheiro, blueprint ou tarefa incompatível.
+
+Toda instalação conserva ao menos um vizinho transitável como futuro ponto de interação do objeto e, se o engenheiro tinha caminho para a saída, conserva esse caminho após a conclusão. Paredes, outros objetos e o fechamento de portas não podem eliminar o último ponto de interação de um objeto existente. Ao selecionar um objeto concluído, o painel lista seus vizinhos transitáveis. Eles ainda não executam uso ou atendimento nesta entrega.
+
+Se a área mudar após o planejamento, a tarefa é revalidada antes de começar e em cada atualização de trabalho, inclusive na conclusão. Uma incompatibilidade bloqueia a tarefa com motivo legível, sem impedir outras obras. Cancelar durante viagem ou trabalho remove blueprint/tarefa sem criar objeto. **Demolir** um objeto também exige vizinho adjacente e **1,5 segundo** (`OBJECT_DEMOLISH_SECONDS`); a célula só fica livre ao terminar. Reiniciar remove objetos e obras criados pelo jogador.
 
 ## Salvar e carregar
 
@@ -102,24 +114,26 @@ Use os botões **Salvar** e **Carregar**, abaixo de Reiniciar no painel (role se
 
 O arquivo é **`user://site_director.json`**. O caminho absoluto pode ser consultado com `OS.get_user_data_dir()` no Godot. Com `bash tools/godot.sh`, fica em **`.tools/data/godot/app_userdata/Site Director/site_director.json`**, dentro do repositório, em diretório ignorado pelo Git. Com o editor direto no Linux, o padrão é `~/.local/share/godot/app_userdata/Site Director/site_director.json`; outros sistemas usam o diretório de dados de usuário do Godot. O wrapper e o editor direto podem, portanto, usar arquivos diferentes.
 
-O formato atual é JSON com `schema_version: 2` e `godot_version: "4.6.3.stable.official.7d41c59c4"`, versão do projeto também registrada em `GameSettings.GODOT_VERSION`. Arquivos válidos do esquema 1 continuam legíveis e são gravados no esquema 2 ao salvar de novo. Coordenadas são objetos explícitos `{"x": 6, "y": 5}`; paredes e blueprints são arrays desses objetos. Nenhuma chave de texto é interpretada como `Vector2i`.
+O formato atual é JSON com `schema_version: 3` e `godot_version: "4.6.3.stable.official.7d41c59c4"`, versão do projeto também registrada em `GameSettings.GODOT_VERSION`. Arquivos válidos dos esquemas 1 e 2 continuam legíveis e são gravados no esquema 3 ao salvar de novo. Coordenadas são objetos explícitos `{"x": 6, "y": 5}`; paredes e blueprints são arrays desses objetos. Nenhuma chave de texto é interpretada como `Vector2i`.
 
 | Campo | Conteúdo |
 | --- | --- |
 | `walls` | Todas as paredes atuais, preservando originais demolidas e paredes novas |
 | `doors` | Lista de célula e estado `open`; independente das paredes |
 | `areas` | Lista de célula e `type` numérico: 1 Alojamento, 2 Refeitório, 3 Contenção |
+| `objects` | Lista de célula e tipo numérico dos objetos concluídos, separada de paredes e portas |
+| `object_blueprints` | Lista de célula e tipo dos objetos planejados, ainda transitáveis |
 | `blueprints` | Planejamento completo; inclui os não autorizados e o vínculo visual dos autorizados |
-| `tasks` | Array na ordem da fila; cada tarefa contém `target`, `action`, `status`, `reason`, `elapsed` e `preserve_exit` |
+| `tasks` | Array na ordem da fila; cada tarefa contém `target`, `action`, `object_type`, `status`, `reason`, `elapsed` e `preserve_exit` |
 | `active`, `work_cell`, `dirty` | Alvo ativo e posição de trabalho (`null` quando ausentes), estado de reavaliação da fila |
 | `engineer` | Célula, posição exata em pixels, destino, rota restante, seleção, ocupado, trabalhando e ação |
-| `camera`, `tool`, `area_type`, `selected_cell` | Câmera, ferramenta, tipo escolhido e célula selecionada |
+| `camera`, `tool`, `area_type`, `object_type`, `selected_cell` | Câmera, ferramenta, tipos escolhidos e célula selecionada |
 
 A captura e a aplicação são síncronas na thread principal, sem avançar a simulação. Carregar primeiro valida o documento inteiro em uma estrutura separada: tipos, versões, coordenadas, duplicações, tempo de trabalho, rota ortogonal transitável, posição no segmento, alvos e vínculos com o engenheiro/posição adjacente, saída segura ativa, câmera e ferramenta. Só então substitui os campos do mundo, sem resetar progresso, reposicionar em centros ou emitir sinais intermediários de grade/engenheiro/tarefas. Os objetos e suas conexões existentes permanecem; a simulação continua normalmente no próximo processamento.
 
 Salvar grava `site_director.json.tmp` no mesmo diretório, faz flush, fecha e relê/valida o temporário antes de renomeá-lo sobre o slot. Uma falha reportada de abertura/gravação/verificação/substituição mantém o slot anterior; o código nunca apaga o slot antigo para contornar uma falha. A substituição no sistema Linux deste ambiente foi executada e verificada. Não há garantia adicional contra falha física de disco/energia.
 
-Arquivos ausentes, JSON corrompido, versões incompatíveis ou estados inconsistentes são recusados sem modificar o mundo. A mensagem do painel muda para explicar o problema. Saves maiores que 2 MiB são recusados. Há leitura compatível do esquema 1, sem suporte a versões futuras, múltiplos slots, restauração de controles de teclado/mouse mantidos pressionados ou histórico de mensagens do painel; a mensagem de carregar é mostrada no lugar do histórico.
+Arquivos ausentes, JSON corrompido, versões incompatíveis ou estados inconsistentes são recusados sem modificar o mundo. A mensagem do painel muda para explicar o problema. Saves maiores que 2 MiB são recusados. Há leitura compatível dos esquemas 1 e 2, sem suporte a versões futuras, múltiplos slots, restauração de controles de teclado/mouse mantidos pressionados ou histórico de mensagens do painel; a mensagem de carregar é mostrada no lugar do histórico.
 
 ## Validação automatizada
 
@@ -140,7 +154,9 @@ Cobertura de persistência em `tests/save_tests.gd`: blueprint não autorizado; 
 
 Cobertura de portas/áreas em `tests/door_area_tests.gd`: instalação parcial e conclusão física; cancelamento preservando parede; porta fechada/aberta na navegação e no painel; tarefa bloqueada retomada ao abrir; rota invalidada ao fechar; demolição de porta; áreas arbitrárias sem bloquear caminho e independentes de paredes; seleção e clique no painel; save/load de porta aberta/fechada, áreas e instalação parcial; rejeição de sobreposição inválida; leitura de save legado do esquema 1; reinício das estruturas originais.
 
-Validação atual: **963 verificações, 0 falhas** com `bash tools/validate.sh`. A cena foi executada graficamente em Xvfb com Mesa llvmpipe e renderizador Compatibility; as três novas capturas `07`–`09` em `docs/screenshots/` mostram instalação de porta, portas aberta/fechada, áreas e painel rolado em 1280×720. As imagens foram inspecionadas e um alargamento indevido do painel foi corrigido. O roteiro manual abaixo continua pendente, sem alegação de cliques humanos ou teste em monitor físico.
+Cobertura de objetos em `tests/object_tests.gd`: compatibilidade dos quatro tipos com suas áreas, blueprint transitável, objeto sólido e interação adjacente, instalação/demolição física, cancelamento em trânsito/trabalho, proteção da saída e do último ponto de interação, revalidação após mudança de área, fila com tarefa bloqueada, rotas combinando porta e objeto, save/load parcial/repetido e migração dos esquemas 1 e 2.
+
+Validação atual: **1.089 verificações, 0 falhas** com `bash tools/validate.sh`. A cena foi executada graficamente em Xvfb com Mesa llvmpipe e renderizador Compatibility; as cinco capturas novas `10`–`14` em `docs/screenshots/` mostram blueprint, instalação, objeto concluído, demolição, progresso e bloqueio por área em 1280×720. As imagens foram inspecionadas; o roteiro manual abaixo continua pendente, sem alegação de cliques humanos ou teste em monitor físico.
 
 ## Teste manual visual (pendente)
 
@@ -168,9 +184,12 @@ Validação atual: **963 verificações, 0 falhas** com `bash tools/validate.sh`
 22. Confira as mensagens de Salvar/Carregar. Para testar erro manualmente, faça uma cópia externa do save e corrompa o JSON ou altere `schema_version`; Carregar deve recusar e preservar o mundo atual. Restaure a cópia ao terminar. Sem arquivo, Carregar deve informar ausência.
 23. No modo Porta, clique numa parede. Confira que ela continua sólida durante a instalação, que cancelar preserva a parede e que a conclusão a troca por porta fechada. No modo Selecionar, clique na porta e abra/feche pelo painel; confira alteração de caminho e impossibilidade de fechar sobre o engenheiro.
 24. Demola uma porta e confira que só ao terminar ela vira piso. Pinte células transitáveis com os quatro tipos do seletor Área, inclusive formas abertas; confira a cor suave, o tipo no painel, navegação inalterada, save/load e limpeza ao reiniciar.
+25. Pinte uma célula como Alojamento e três como Refeitório. No modo Objeto, planeje uma Cama na primeira e Mesa, Assento e Distribuidor nas outras. Confira a recusa de tipos na área errada, blueprint transitável e objeto concluído sólido após deslocamento/trabalho adjacente.
+26. Selecione um objeto concluído e confira tipo, área e vizinhos de interação no painel. Demola o objeto e confirme que ele só libera a célula ao terminar. Tente bloquear o último vizinho com parede, objeto ou porta fechada: a ação deve ser recusada.
+27. Altere a área de um blueprint/tarefa, verifique motivo de bloqueio e outra obra avançando; restaure a área e confirme a retomada. Salve no meio da instalação e demolição de objeto, carregue duas vezes e confira posição/progresso e ausência de duplicação. Reinicie e confirme remoção dos objetos.
 
 ## Organização e limite de escopo
 
-`grid_state.gd`: paredes, portas e áreas independentes; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção, demolição e instalação; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
+`grid_state.gd`: paredes, portas, áreas e objetos independentes; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção, demolição e instalação; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
 
-Classe-D, necessidades, economia, SCPs, combate, objetos de sala, autosave e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.
+Classe-D, uso automático dos objetos, necessidades, economia, SCPs, combate, autosave e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.

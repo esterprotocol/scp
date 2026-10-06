@@ -36,6 +36,10 @@ func set_selected(value: bool) -> void:
 
 func state_text() -> String:
 	if working:
+		if work_action == "Instalar objeto":
+			return "Instalando objeto"
+		if work_action == "Demolir objeto":
+			return "Demolindo objeto"
 		if work_action == "Demolir":
 			return "Demolindo parede/porta"
 		if work_action == "Instalar porta":

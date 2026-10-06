@@ -10,6 +10,8 @@ signal door_requested
 signal area_requested
 signal area_type_requested(kind: int)
 signal toggle_door_requested
+signal object_requested
+signal object_type_requested(kind: int)
 signal authorize_requested
 signal cancel_active_requested
 signal cancel_all_requested
@@ -26,6 +28,8 @@ var plan_button: Button
 var demolish_button: Button
 var door_button: Button
 var area_button: Button
+var object_button: Button
+var object_type: OptionButton
 var area_type: OptionButton
 var toggle_door_button: Button
 var cell_label: Label
@@ -71,24 +75,35 @@ func _ready() -> void:
 	demolish_button = add_button(box, "Demolir", func() -> void: demolish_requested.emit())
 	door_button = add_button(box, "Porta", func() -> void: door_requested.emit())
 	area_button = add_button(box, "Área", func() -> void: area_requested.emit())
+	object_button = add_button(box, "Objeto", func() -> void: object_requested.emit())
 	select_button.toggle_mode = true
 	plan_button.toggle_mode = true
 	demolish_button.toggle_mode = true
 	door_button.toggle_mode = true
 	area_button.toggle_mode = true
+	object_button.toggle_mode = true
 	area_type = OptionButton.new()
 	for index in GridState.AREA_NAMES.size():
 		area_type.add_item(GridState.AREA_NAMES[index], index)
 	area_type.item_selected.connect(func(index: int) -> void: area_type_requested.emit(index))
 	box.add_child(area_type)
+	object_type = OptionButton.new()
+	for kind in range(1, GridState.OBJECT_NAMES.size()):
+		object_type.add_item(GridState.OBJECT_NAMES[kind], kind)
+	object_type.item_selected.connect(func(index: int) -> void: object_type_requested.emit(index + 1))
+	box.add_child(object_type)
 	box.add_child(HSeparator.new())
 	selection_label = add_label(box, "")
 	cell_label = add_label(box, "Célula: nenhuma")
+	cell_label.custom_minimum_size.x = 220
+	cell_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toggle_door_button = add_button(box, "Abrir/fechar porta", func() -> void: toggle_door_requested.emit())
 	toggle_door_button.disabled = true
 	state_label = add_label(box, "")
 	destination_label = add_label(box, "")
 	task_label = add_label(box, "Tarefa atual: nenhuma")
+	task_label.custom_minimum_size.x = 220
+	task_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	progress_bar = ProgressBar.new()
 	progress_bar.custom_minimum_size.y = 22
 	box.add_child(progress_bar)
@@ -116,7 +131,7 @@ func _ready() -> void:
 	save_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(HSeparator.new())
-	var controls_label := add_label(box, "CONTROLES\nSelecionar: esquerdo escolhe engenheiro ou porta; direito move.\nPlanejar: esquerdo marca; direito cancela obra.\nDemolir/Porta: esquerdo solicita; direito cancela tarefa.\nÁrea: escolha tipo e pinte com esquerdo.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint não autorizado\nDourado: construção autorizada\nLaranja: demolição solicitada\nRoxo: porta/instalação\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
+	var controls_label := add_label(box, "CONTROLES\nSelecionar: esquerdo escolhe engenheiro, porta ou objeto; direito move.\nPlanejar/Objeto: esquerdo marca; direito cancela obra.\nDemolir/Porta: esquerdo solicita; direito cancela tarefa.\nÁrea: escolha tipo e pinte com esquerdo.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint de parede\nContorno colorido cruzado: blueprint de objeto\nForma sólida: objeto instalado\nDourado: construção autorizada\nLaranja: demolição solicitada\nRoxo: porta/instalação\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
 	controls_label.custom_minimum_size.x = 220
 	controls_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	get_viewport().size_changed.connect(func() -> void: scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0))
@@ -136,6 +151,7 @@ func set_planning(value: bool) -> void:
 	demolish_button.set_pressed_no_signal(false)
 	door_button.set_pressed_no_signal(false)
 	area_button.set_pressed_no_signal(false)
+	object_button.set_pressed_no_signal(false)
 
 func set_demolishing() -> void:
 	select_button.set_pressed_no_signal(false)
@@ -143,6 +159,7 @@ func set_demolishing() -> void:
 	demolish_button.set_pressed_no_signal(true)
 	door_button.set_pressed_no_signal(false)
 	area_button.set_pressed_no_signal(false)
+	object_button.set_pressed_no_signal(false)
 
 func set_door_mode() -> void:
 	set_planning(false)
@@ -154,21 +171,34 @@ func set_area_mode() -> void:
 	select_button.set_pressed_no_signal(false)
 	area_button.set_pressed_no_signal(true)
 
+func set_object_mode() -> void:
+	set_planning(false)
+	select_button.set_pressed_no_signal(false)
+	object_button.set_pressed_no_signal(true)
+
 func refresh_cell(grid: GridState, cell: Vector2i) -> void:
 	if not grid.contains(cell):
 		cell_label.text = "Célula: nenhuma"
 		toggle_door_button.disabled = true
 		return
-	var description := "Porta aberta" if grid.doors.get(cell, false) else "Porta fechada" if grid.doors.has(cell) else "Parede" if grid.walls.has(cell) else "Piso"
+	var description: String = GridState.OBJECT_NAMES[grid.objects[cell]] if grid.objects.has(cell) else ("Porta aberta" if grid.doors.get(cell, false) else "Porta fechada" if grid.doors.has(cell) else "Parede" if grid.walls.has(cell) else "Piso")
 	cell_label.text = "Célula (%d, %d): %s\nÁrea: %s" % [cell.x, cell.y, description, GridState.AREA_NAMES[grid.area_at(cell)]]
+	if grid.objects.has(cell):
+		var points: PackedStringArray = []
+		for neighbor: Vector2i in grid.interaction_cells(cell):
+			points.append("(%d, %d)" % [neighbor.x, neighbor.y])
+		cell_label.text += "\nInteração: " + (", ".join(points) if not points.is_empty() else "nenhuma")
 	toggle_door_button.disabled = not grid.doors.has(cell)
 	toggle_door_button.text = "Fechar porta" if grid.doors.get(cell, false) else "Abrir porta"
 
 func refresh_construction(construction: Construction) -> void:
 	var active := construction.active
-	task_label.text = "Tarefa atual: nenhuma" if active == Construction.NONE else "%s (%d, %d)\n%s" % [construction.tasks[active].action, active.x, active.y, construction.tasks[active].status]
+	var title: String = "" if active == Construction.NONE else construction.tasks[active].action
+	if active != Construction.NONE and construction.tasks[active].action in [Construction.BUILD_OBJECT, Construction.DEMOLISH_OBJECT]:
+		title += " " + GridState.OBJECT_NAMES[construction.tasks[active].object_type]
+	task_label.text = "Tarefa atual: nenhuma" if active == Construction.NONE else "%s (%d, %d)\n%s" % [title, active.x, active.y, construction.tasks[active].status]
 	progress_bar.value = construction.progress() * 100.0
-	queue_label.text = "Blueprints: %d · Tarefas: %d" % [construction.blueprints.size(), construction.tasks.size()]
+	queue_label.text = "Blueprints: %d · Tarefas: %d" % [construction.blueprints.size() + construction.object_blueprints.size(), construction.tasks.size()]
 	blocked_label.text = construction.blocked_text()
 	blocked_label.add_theme_color_override("font_color", Color("f2867f") if blocked_label.text != "Nenhum bloqueio." else Color("b4c3cc"))
 

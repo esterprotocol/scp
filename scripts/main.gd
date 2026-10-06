@@ -10,8 +10,10 @@ var planning := false
 var demolishing := false
 var installing_door := false
 var painting_area := false
+var placing_object := false
 var area_drag_active := false
 var area_type := 1
+var object_type := 1
 var selected_cell := Vector2i(-1, -1)
 var save_slot := SaveSlot.new()
 
@@ -35,6 +37,8 @@ func _ready() -> void:
 	hud.door_requested.connect(set_door_mode)
 	hud.area_requested.connect(set_area_mode)
 	hud.area_type_requested.connect(func(kind: int) -> void: area_type = kind)
+	hud.object_requested.connect(set_object_mode)
+	hud.object_type_requested.connect(func(kind: int) -> void: object_type = kind)
 	hud.toggle_door_requested.connect(toggle_selected_door)
 	hud.authorize_requested.connect(func() -> void: hud.show_message(construction.authorize()))
 	hud.cancel_active_requested.connect(func() -> void: hud.show_message(construction.cancel_active()))
@@ -52,8 +56,10 @@ func reset_scenario() -> void:
 	selected_cell = Vector2i(-1, -1)
 	map_view.selected_cell = selected_cell
 	area_type = 1
+	object_type = 1
 	area_drag_active = false
 	hud.area_type.select(area_type)
+	hud.object_type.select(object_type - 1)
 	set_planning(false)
 	hud.refresh_cell(grid, selected_cell)
 	hud.refresh(engineer)
@@ -79,6 +85,7 @@ func set_planning(value: bool) -> void:
 	demolishing = false
 	installing_door = false
 	painting_area = false
+	placing_object = false
 	hud.set_planning(value)
 	hud.show_message("Planejar: clique esquerdo marca; clique direito cancela blueprint/tarefa." if value else "Modo Selecionar: selecione o engenheiro para mover.")
 
@@ -88,6 +95,7 @@ func set_demolishing() -> void:
 	demolishing = true
 	installing_door = false
 	painting_area = false
+	placing_object = false
 	hud.set_demolishing()
 	hud.show_message("Demolir: clique esquerdo solicita; clique direito cancela a tarefa. A parede só desaparece ao concluir.")
 
@@ -97,6 +105,7 @@ func set_door_mode() -> void:
 	demolishing = false
 	installing_door = true
 	painting_area = false
+	placing_object = false
 	hud.set_door_mode()
 	hud.show_message("Porta: clique esquerdo solicita instalação em parede; direito cancela tarefa.")
 
@@ -106,8 +115,19 @@ func set_area_mode() -> void:
 	demolishing = false
 	installing_door = false
 	painting_area = true
+	placing_object = false
 	hud.set_area_mode()
 	hud.show_message("Área: selecione o tipo e pinte células transitáveis com o botão esquerdo.")
+
+func set_object_mode() -> void:
+	area_drag_active = false
+	planning = false
+	demolishing = false
+	installing_door = false
+	painting_area = false
+	placing_object = true
+	hud.set_object_mode()
+	hud.show_message("Objeto: escolha o tipo, clique esquerdo planeja; direito cancela blueprint ou obra.")
 
 func select_cell(cell: Vector2i) -> void:
 	selected_cell = cell if grid.contains(cell) else Vector2i(-1, -1)
@@ -123,8 +143,10 @@ func toggle_selected_door() -> void:
 	if open and engineer.occupies(selected_cell):
 		hud.show_message("Não é possível fechar: engenheiro ocupa a porta.")
 		return
-	grid.set_door_open(selected_cell, not open)
-	hud.show_message("Porta fechada." if open else "Porta aberta.")
+	if grid.set_door_open(selected_cell, not open):
+		hud.show_message("Porta fechada." if open else "Porta aberta.")
+	else:
+		hud.show_message("Não é possível fechar: último ponto de interação de um objeto.")
 
 func paint_area(cell: Vector2i) -> void:
 	if grid.set_area(cell, area_type):
@@ -145,6 +167,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		var point: Vector2 = get_canvas_transform().affine_inverse() * event.position
 		var cell := grid.to_cell(point)
+		if placing_object:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				hud.show_message(construction.plan_object(cell, object_type))
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				hud.show_message(construction.cancel(cell))
+			return
 		if installing_door:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				hud.show_message(construction.request_door(cell))
@@ -173,6 +201,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if grid.doors.has(cell):
 				engineer.set_selected(false)
 				hud.show_message("Porta aberta. Use Fechar porta." if grid.doors[cell] else "Porta fechada. Use Abrir porta.")
+			elif grid.objects.has(cell):
+				engineer.set_selected(false)
+				hud.show_message("%s selecionado. Pontos de interação no painel." % GridState.OBJECT_NAMES[grid.objects[cell]])
 			else:
 				engineer.set_selected(point.distance_to(engineer.position) <= 15.0)
 				hud.show_message("Engenheiro selecionado. Clique direito para mover." if engineer.selected else "Célula selecionada.")

@@ -1,4 +1,20 @@
-# Progresso — entrega 06: portas e áreas designadas
+# Progresso — entrega 07: objetos essenciais
+
+## Base e implementação
+
+- Base confirmada antes de editar: `feat/doors-and-zones`, commit `8a717dca69c6a2968fc9af88f4bc29f0034bff69`; `AGENTS.md` lido. Branch desta entrega: `feat/essential-objects`, sem merge na `main`.
+- Godot `4.6.3.stable.official.7d41c59c4` e Compatibility mantidos. `GridState` separa paredes, portas, áreas e objetos. Cama exige Alojamento; Mesa de refeitório, Assento e Distribuidor exigem Refeitório. Blueprints de objeto não bloqueiam; objetos concluídos bloqueiam.
+- Ferramenta Objeto com seletor de tipo, planejamento individual e autorização pela fila do engenheiro. Instalação física adjacente leva 2 segundos, demolição física 1,5 segundo; a mudança da grade ocorre só na conclusão. Cancelar em trânsito ou trabalho descarta blueprint/tarefa sem criar objeto.
+- Área é revalidada antes de iniciar e concluir. Tarefas bloqueadas mostram o tipo e motivo e não impedem outras. Instalação preserva a saída do engenheiro, conserva ao menos um vizinho transitável para interação e impede que paredes, objetos ou porta fechada removam o último ponto de interação de um objeto existente.
+- Save JSON evoluído para esquema 3, com objetos, blueprints de objeto, tipos e tarefas parciais na fila ordenada. Saves válidos dos esquemas 1 e 2 continuam legíveis. Reiniciar limpa objetos e obras; carregar valida estruturas e vínculos antes de substituir o cenário, sem duplicar tarefas.
+
+## Verificado e limites
+
+- `bash tools/validate.sh`: **1.089 verificações, 0 falhas**; importação do projeto e execução headless da cena principal concluídas. Cenários anteriores preservados; novos testes cobrem compatibilidade dos quatro tipos, navegação antes/depois da obra, interação, instalação/demolição, cancelamento, saída, revalidação de área, porta com objeto, save/load parcial e repetido, migração e reinício.
+- Execução gráfica real em Xvfb/Mesa llvmpipe, OpenGL Compatibility, 1280×720: cinco capturas novas `10`–`14` em `docs/screenshots/` depois de frames renderizados. Inspeção por visão confirmou blueprint cruzado distinto de forma sólida, cores de área, objeto e rota legíveis, progresso e razão de bloqueio acessíveis com rolagem, e painel sem cobrir o mapa.
+- Testes manuais de cliques, arraste, continuidade da animação e monitor/driver físico ainda pendentes; estados gráficos preparados por métodos do jogo. A rotina de Classe-D, uso automático de objetos, necessidades, economia e SCPs permanecem fora do escopo. Áreas e objetos não tornam a sala operacional automaticamente.
+
+## Histórico — entrega 06: portas e áreas designadas
 
 ## Base e implementação
 
