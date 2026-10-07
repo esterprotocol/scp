@@ -281,12 +281,15 @@ func run(harness: SceneTree, scene: Node2D) -> void:
 	check(game.engineer.destination == Vector2i(7, 5), "engineer still accepts movement command")
 	var scroll: ScrollContainer = game.hud.get_child(0).get_child(0)
 	check(game.hud.population_label.get_global_rect().end.y < 720 and game.hud.alerts_label.get_global_rect().end.y < 720, "population and alerts visible at 1280x720")
+	game.set_object_mode()
+	await runner.process_frame
 	scroll.ensure_control_visible(game.hud.object_type)
 	await runner.process_frame
 	check(game.hud.object_type.get_global_rect().intersects(scroll.get_global_rect()), "object engineering control reachable with scrolling")
-	scroll.ensure_control_visible(game.hud.load_button)
+	var load_rect: Rect2 = game.hud.load_button.get_global_rect()
+	scroll.scroll_vertical = 0
 	await runner.process_frame
-	check(game.hud.load_button.get_global_rect().intersects(scroll.get_global_rect()), "save/load controls remain reachable at 720p")
+	check(Rect2(Vector2.ZERO, Vector2(1280, 720)).encloses(load_rect) and game.hud.load_button.get_global_rect() == load_rect, "save/load controls remain fixed and reachable at 720p")
 	scroll.scroll_vertical = 0
 	DirAccess.remove_absolute(SAVE_PATH)
 	reset_case()

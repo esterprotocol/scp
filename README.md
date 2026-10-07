@@ -4,6 +4,12 @@ Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.
 
 O revamp da interface foi integrado à branch `feat/character-visuals`, preservando personagens e rotina Classe-D já existentes nessa branch. Sem merge automático na `main`.
 
+## Interface da instalação
+
+A branch `feat/containment-ui` parte da versão com QoL (`086c98e`) e apresenta painéis institucionais escuros, cartões de operação/inspeção e um Theme nativo compartilhado. Seleção em verde, planejamento em azul, obras/avisos em dourado e bloqueios em vermelho com motivo legível. Tempo e Salvar/Carregar ficam fixos no rodapé; os seletores de área e objeto aparecem com sua ferramenta ativa. Mapa inteiro visível em 1280×720, sem assets externos ou mudanças de mecânicas.
+
+[Comparações antes/depois e resultados](docs/PROGRESS.md): tela normal, engenheiro selecionado, construção ativa e ação bloqueada. Suíte: **1.429 checks, zero falhas**. Testes de cliques no jogo gráfico passaram; avaliação humana de fluidez permanece pendente.
+
 ## Usabilidade das interações
 
 Entrega na branch `feat/interaction-usability`. Clique no engenheiro abre sua inspeção com Mover destacado, sem emitir ordem. Pressione Mover e indique piso com esquerdo, ou use o direito existente. Objetos e portas expõem ações contextuais. Ferramentas mostram prévia e causa de bloqueio. Esc limpa seleção e ferramenta, preservando rotas e obras. Classe-D continua autônomo, com motivo para Mover indisponível.

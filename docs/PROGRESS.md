@@ -1,3 +1,50 @@
+# Entrega — identidade visual da instalação de contenção
+
+Branch `feat/containment-ui`, criada a partir de `feat/interaction-usability` (`086c98e`). AGENTS.md lido; quatro estados capturados **antes de editar o HUD e o tema**. Sem merge na main. A modificação preexistente em `project.godot` ficou preservada fora da entrega.
+
+## Resultado visual
+
+- Painéis institucionais escuros, título branco, identificação da diretoria, cartões numerados e mesma linguagem visual na operação e na inspeção.
+- `SiteUITheme.shared()` cria um Theme nativo compartilhado por ambos os painéis: tipografia, botões, foco de teclado visível, estados desabilitados, menus e rolagem. Paleta, espaços e StyleBoxes centralizados em `scripts/ui_theme.gd`.
+- Verde identifica seleção/Mover e ações confirmadas; azul identifica ferramentas de planejamento e títulos; dourado identifica obras/progresso e avisos; vermelho identifica recusas e bloqueios, sempre acompanhados de texto. Ferramenta Demolir destacada em âmbar. Sem alteração das cores/regras do mapa.
+- Barra de ferramentas com rótulos em português, sem pictogramas ambíguos. Seletores contextuais: Área mostra designação; Objeto mostra tipo e requisito. Valores e sinais existentes preservados.
+- Mensagem de estado em caixa própria, com borda vermelha para recusa, destaque verde para sucesso e texto claro para instruções. Prévia permanece próxima ao estado da ferramenta.
+- Inspeção organiza alvo/célula, pessoa selecionada e condição do Classe-D em cartões. Mover e ações contextuais existentes preservados; Classe-D continua autônomo.
+- Tempo, Salvar e Carregar ficam em barra fixa no rodapé esquerdo. Conteúdo operacional e inspeção têm rolagem independente. Autorizar e trabalho ficam antes dos controles de sessão.
+- Em 1280×720, mapa inteiro na faixa central, sem células cobertas. Fontes nativas do Godot; nenhuma fonte, imagem, plugin ou asset de terceiros adicionado.
+
+## Capturas dos mesmos estados
+
+Cada par foi produzido pelo mesmo roteiro, com posição da câmera, mapa e estágio da simulação equivalentes. Capturas do viewport **gráfico**, 1280×720, Compatibility/Mesa llvmpipe no display local; não são capturas headless nem Xvfb. A posição de rolagem adapta-se à nova altura dos componentes.
+
+| Estado | Antes | Depois |
+| --- | --- | --- |
+| Normal | [antes](screenshots/ui-before-normal.png) | [depois](screenshots/ui-after-normal.png) |
+| Engenheiro selecionado, sem ordem | [antes](screenshots/ui-before-npc.png) | [depois](screenshots/ui-after-npc.png) |
+| Parede (6,5), 0,6 s de trabalho | [antes](screenshots/ui-before-construction.png) | [depois](screenshots/ui-after-construction.png) |
+| Cama recusada em (7,5), sem Alojamento | [antes](screenshots/ui-before-blocked.png) | [depois](screenshots/ui-after-blocked.png) |
+
+Roteiro reproduzível: `GODOT_BIN=/tmp/godot463/Godot_v4.6.3-stable_linux.x86_64 SITE_DIRECTOR_UI_PHASE=after LIBGL_ALWAYS_SOFTWARE=1 bash tools/godot.sh --audio-driver Dummy --resolution 1280x720 --position 0,0 --script res://tools/ui_comparison.gd`. Godot 4.6.3 oficial, OpenGL 4.6 Compatibility, Mesa 26.2.4 llvmpipe. Aviso de V-Sync não suportado pelo driver presente; execução concluída.
+
+## Validação real
+
+- `tools/validate.sh` com GODOT_BIN 4.6.3: **1.429 verificações, zero falhas**, importação e cena por 120 frames. `git diff --check` sem problemas.
+- Roteiro gráfico passou com cliques sintéticos pelo viewport nos botões reais: seleção do engenheiro sem emitir ordem; Mover e indicação de destino; Esc preservando rota; Planejar, Autorizar e Cancelar todas; recusa de cama e seletores contextuais; Esc com foco; Classe-D selecionado com Mover indisponível; inspeção/demolição/cancelamento de cama; abertura de porta; pausa e retomada. Save/load verificado em arquivo isolado, removido depois, sem tocar no slot do jogador.
+- Capturas inspecionadas por visão: mapa completo, textos portugueses, ferramenta ativa, destaque de Mover, progresso e mensagem de bloqueio legíveis.
+- Código de navegação, personagens, construção, câmera, save, main e atalhos **não alterado nesta entrega**. Novas modificações de produto limitadas a HUD e tema.
+- O check de acesso ao save foi adaptado: agora verifica que Carregar fica integralmente no viewport e imóvel após rolar, pois o botão deixou o painel rolável. O check de seletor ativa Objeto antes de verificar seu acesso.
+- Um erro de indentação durante a composição dos cartões foi detectado e corrigido antes dos resultados finais; validações repetidas com sucesso.
+
+## Limites para avaliação
+
+- Testes de interação gráfica são automatizados, não uma sessão humana manual. Avaliação humana de fluidez e leitura permanece pendente.
+- Em 1280×720, obras extensas e controles secundários (cancelar todas, reiniciar, ajuda) ainda podem exigir rolagem. Tempo e arquivo permanecem fixos.
+- Seletores de tipo agora aparecem apenas com a ferramenta correspondente ativa; avaliar essa apresentação contextual.
+- Layout priorizado para 1280×720. Não foi declarada validação em resolução menor ou monitor/driver físico.
+
+
+# Histórico
+
 # Entrega — usabilidade das interações
 
 Branch `feat/interaction-usability`, baseada em `feat/character-visuals`, sem merge na main. AGENTS.md lido. Alteração preexistente em project.godot preservada e excluída do commit.
