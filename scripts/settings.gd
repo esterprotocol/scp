@@ -27,3 +27,9 @@ const CLASSD_HUNGER_DECAY := 0.12 # Points per simulated second.
 const CLASSD_REST_DECAY := 0.08
 const CLASSD_MEAL_SECONDS := 8.0
 const CLASSD_REST_SECONDS := 12.0
+
+# Simulation core (fixed tick, discrete movement).
+const SIM_TICK_HZ := 10
+const SIM_MAX_TICKS_PER_FRAME := 8
+const SIM_SPEEDS := [1, 2, 4]
+const AGENT_STEP_TICKS := 3 # Ticks per cell step: 10 Hz / 3 = ~3.3 cells/s.

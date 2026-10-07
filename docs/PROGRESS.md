@@ -1,3 +1,23 @@
+# Progresso — núcleo de simulação (milestone 1.1, passo 1)
+
+## Decisões
+
+- Reescrita incremental do núcleo: o sistema antigo (obra, Classe-D e reserva dentro de `GridState`) será migrado fluxo a fluxo e apagado ao final. Save do esquema 4 congelado, sem migração; saves antigos serão descartados.
+- Posição lógica **discreta**: a pessoa está sempre em uma célula, reserva a próxima antes de entrar e mantém as duas até o fim do passo. A suavização é só visual (`Agent.visual_position`).
+
+## Implementado (`scripts/sim/`)
+
+- `SimClock`: tick fixo de 10 Hz, pausa, velocidades 1/2/4, limite de ticks por quadro e `advance(n)` para testes.
+- `Registry`: IDs inteiros estáveis, monotônicos e nunca reutilizados.
+- `Reservations`: reservas tudo-ou-nada com dono, expiração opcional, motivo de negação com chave e dono, liberação por dono e varredura de órfãs.
+- `Agent`: movimento compartilhado por qualquer pessoa; cancelar termina o passo já comprometido, sem teleporte; bloqueio expõe motivo e contagem de ticks.
+- `SimWorld`: compõe os quatro, tica agentes em ordem de ID (determinístico) e expira reservas. Ainda **não está ligado** a `main.gd`; isso acontece no passo 2.
+
+## Validação
+
+- `bash tools/validate.sh`: **1.478 verificações, 0 falhas** (1.414 anteriores + 64 em `tests/sim_tests.gd`), com Godot 4.6.3 oficial. Teste de mutação: removendo a liberação de célula do agente, 8 verificações falham.
+- Limites conhecidos: dois agentes frente a frente em corredor de uma célula travam (reportado por `blocked_ticks`); resolver isso é responsabilidade do sistema de jobs. A prioridade por ordem de ID é provisória.
+
 # Progresso — entrega 08: Classe-D e necessidades básicas
 
 ## Base e implementação
