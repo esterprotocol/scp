@@ -2,10 +2,12 @@ class_name GridState
 extends RefCounted
 
 signal changed
+signal availability_changed
 
 var walls: Dictionary = {}
 var doors: Dictionary = {} # Cell -> true when open, false when closed.
 var areas: Dictionary = {} # Cell -> area type; absence means no area.
+var reservations: Dictionary = {} # Object cell -> person identifier; transient index.
 var objects: Dictionary = {} # Cell -> type; independent from structures and areas.
 const AREA_NAMES := ["Sem área", "Alojamento", "Refeitório", "Contenção"]
 const AREA_COLORS := [Color.TRANSPARENT, Color("809af0"), Color("83d79c"), Color("bb9de6")]
@@ -21,6 +23,7 @@ func reset() -> void:
 	doors.clear()
 	areas.clear()
 	objects.clear()
+	reservations.clear()
 	for y in range(3, 19):
 		if y != 12:
 			walls[Vector2i(10, y)] = true
@@ -106,6 +109,7 @@ func add_object(cell: Vector2i, kind: int) -> bool:
 func remove_object(cell: Vector2i) -> bool:
 	if not objects.has(cell):
 		return false
+	reservations.erase(cell)
 	objects.erase(cell)
 	changed.emit()
 	return true
@@ -137,3 +141,23 @@ func to_cell(point: Vector2) -> Vector2i:
 
 func center(cell: Vector2i) -> Vector2:
 	return (Vector2(cell) + Vector2(0.5, 0.5)) * GameSettings.CELL_SIZE
+
+func object_available(cell: Vector2i, owner: String) -> bool:
+	return objects.has(cell) and (not reservations.has(cell) or reservations[cell] == owner)
+
+func reserve_object(cell: Vector2i, owner: String) -> bool:
+	if not object_available(cell, owner):
+		return false
+	if reservations.get(cell, "") != owner:
+		reservations[cell] = owner
+		availability_changed.emit()
+	return true
+
+func release_reservations(owner: String) -> void:
+	var released := false
+	for cell: Vector2i in reservations.keys():
+		if reservations[cell] == owner:
+			reservations.erase(cell)
+			released = true
+	if released:
+		availability_changed.emit()

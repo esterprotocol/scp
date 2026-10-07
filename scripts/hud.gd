@@ -17,6 +17,8 @@ signal cancel_active_requested
 signal cancel_all_requested
 signal speed_requested(speed: float)
 
+var population_label: Label
+var alerts_label: Label
 var selection_label: Label
 var state_label: Label
 var destination_label: Label
@@ -48,6 +50,7 @@ var normal_button: Button
 var fast_button: Button
 var help_label: Label
 var inspection_panel: PanelContainer
+var inspection_scroll: ScrollContainer
 var current_speed := 1.0
 
 func _ready() -> void:
@@ -146,9 +149,13 @@ func _ready() -> void:
 	inspection_panel = PanelContainer.new()
 	inspection_panel.add_theme_stylebox_override("panel", SiteUITheme.panel(SiteUITheme.BG, SiteUITheme.BORDER, 8, 12))
 	add_child(inspection_panel)
+	inspection_scroll = ScrollContainer.new()
+	inspection_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	inspection_scroll.custom_minimum_size = Vector2(192, 480)
+	inspection_panel.add_child(inspection_scroll)
 	var inspection := VBoxContainer.new()
 	inspection.add_theme_constant_override("separation", SiteUITheme.SPACING)
-	inspection_panel.add_child(inspection)
+	inspection_scroll.add_child(inspection)
 	section(inspection, "INSPEÇÃO / CÉLULA")
 	cell_label = add_label(inspection, "Célula: nenhuma", 13)
 	cell_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -159,6 +166,11 @@ func _ready() -> void:
 	state_label = add_label(inspection, "", 13)
 	state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	destination_label = add_label(inspection, "", 13)
+	section(inspection, "POPULAÇÃO / 01")
+	population_label = add_label(inspection, "", 12, SiteUITheme.TEXT)
+	population_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	alerts_label = add_label(inspection, "Alertas: nenhum", 12, SiteUITheme.DANGER)
+	alerts_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	get_viewport().size_changed.connect(func() -> void: resize_scroll(scroll))
 	resize_scroll(scroll)
 
@@ -166,6 +178,8 @@ func resize_scroll(scroll: ScrollContainer) -> void:
 	scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 46.0)
 	var width := get_viewport().get_visible_rect().size.x
 	inspection_panel.custom_minimum_size.x = 218.0 if width <= 1280.0 else 260.0
+	inspection_scroll.custom_minimum_size.x = inspection_panel.custom_minimum_size.x - 24.0
+	inspection_scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 46.0)
 	inspection_panel.position = Vector2(width - inspection_panel.custom_minimum_size.x - 12.0, 12.0)
 
 func section(parent: Node, title: String) -> void:
@@ -256,6 +270,8 @@ func refresh_cell(grid: GridState, cell: Vector2i) -> void:
 		for neighbor: Vector2i in grid.interaction_cells(cell):
 			points.append("(%d, %d)" % [neighbor.x, neighbor.y])
 		cell_label.text += "\nInteração: " + (", ".join(points) if not points.is_empty() else "nenhuma")
+		if grid.reservations.has(cell):
+			cell_label.text += "\nReserva: " + str(grid.reservations[cell])
 	toggle_door_button.disabled = not grid.doors.has(cell)
 	toggle_door_button.text = "Fechar porta" if grid.doors.get(cell, false) else "Abrir porta"
 
@@ -281,3 +297,21 @@ func show_message(value: String) -> void:
 	var warning := lower.contains("bloque") or lower.contains("inválid") or lower.contains("inacess") or lower.contains("não ") or lower.contains("erro") or lower.contains("falha") or lower.contains("recus")
 	var color := SiteUITheme.DANGER if warning else SiteUITheme.ACCENT if lower.contains("sucesso") else SiteUITheme.WARNING
 	message_label.add_theme_color_override("font_color", color)
+
+func refresh_population(person: ClassD) -> void:
+	population_label.text = ClassD.NAME
+	if not person.selected:
+		population_label.text += "\nEstado: %s\nDestino: (%d, %d)" % [person.state, person.destination.x, person.destination.y]
+	population_label.text += "\nFome: %.1f / 100\nDescanso: %.1f / 100\nNecessidade: %s\nImpedimento: %s" % [person.hunger, person.rest, person.current_need(), person.impediment if not person.impediment.is_empty() else "nenhum"]
+	if person.state == ClassD.USING:
+		population_label.text += "\nUso: %.1f / %.1f s" % [person.use_elapsed, person.use_seconds()]
+	alerts_label.text = "Alertas: nenhum" if person.alerts.is_empty() else "ALERTAS\n" + "\n".join(person.alerts)
+	alerts_label.add_theme_color_override("font_color", SiteUITheme.MUTED if person.alerts.is_empty() else SiteUITheme.DANGER)
+
+func refresh_selection(worker: Engineer, person: ClassD) -> void:
+	if person.selected:
+		selection_label.text = "Selecionado: " + ClassD.NAME
+		state_label.text = "Estado: " + person.state
+		destination_label.text = "Destino: (%d, %d)" % [person.destination.x, person.destination.y]
+	else:
+		refresh(worker)

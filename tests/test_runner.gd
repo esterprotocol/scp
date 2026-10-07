@@ -58,6 +58,7 @@ func run() -> void:
 	var scene := load("res://scenes/main.tscn") as PackedScene
 	var game = scene.instantiate()
 	root.add_child(game)
+	game.classd.set_process(false)
 	await process_frame
 	var engineer: Engineer = game.engineer
 	engineer.set_process(false)
@@ -168,6 +169,7 @@ func run() -> void:
 	check(game.hud.select_button.button_pressed, "Escape exits tool with GUI button focused")
 	game.hud.object_button.release_focus()
 	check(game.construction.tasks.has(Vector2i(6, 5)) and game.construction.object_blueprints.has(Vector2i(6, 5)), "Escape keeps queued work and blueprint")
+	await ClassDTests.new().run(self, game)
 	game.queue_free()
 	await process_frame
 	print("RESULT: %d checks, %d failures" % [checks, failures])

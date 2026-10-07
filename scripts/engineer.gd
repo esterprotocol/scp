@@ -11,6 +11,13 @@ var construction_busy := false
 var working := false
 var work_action := "Construir"
 var route: Array[Vector2i] = []
+var visual: CharacterVisual
+
+func _ready() -> void:
+	visual = CharacterVisual.new()
+	visual.role = "engineer"
+	add_child(visual)
+	visual.reset_pose(position)
 
 func setup(state: GridState) -> void:
 	grid = state
@@ -26,6 +33,8 @@ func reset() -> void:
 	construction_busy = false
 	working = false
 	work_action = "Construir"
+	if visual != null:
+		visual.reset_pose(position)
 	queue_redraw()
 	changed.emit()
 
@@ -117,10 +126,9 @@ func _process(delta: float) -> void:
 		else:
 			position = position.move_toward(target, budget)
 			budget = 0.0
+	if visual != null:
+		visual.tick(delta, position, "work" if working else ("walk" if not route.is_empty() else "idle"))
 
 func _draw() -> void:
 	if selected:
 		draw_arc(Vector2.ZERO, 14, 0, TAU, 32, Color("64e6b6"), 2.0, true)
-	draw_circle(Vector2.ZERO, 10, Color("e8b95c"))
-	draw_rect(Rect2(-8, -8, 16, 6), Color("ffe2a0"))
-	draw_line(Vector2(-4, 3), Vector2(4, 3), Color("513e28"), 2)

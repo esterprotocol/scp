@@ -2,36 +2,64 @@
 
 ## Implementado
 
-- Base confirmada antes das alterações: `feat/escape-selection-shortcut`, commit `c0f71a1bf73c8df0754f831b1b8c466fc1dc70c0`; `AGENTS.md` lido. Branch `feat/character-visuals`, sem merge na `main`.
-- HUD refeito em duas áreas: ferramentas, tempo, save, mensagens, trabalho e ações num painel rolável à esquerda; inspeção persistente de célula, porta, objeto e engenheiro à direita. Câmera inicial deslocada para manter as 24 colunas do mapa livres em 1280×720.
-- Paleta, espaçamentos e estilos de botões/painéis centralizados em `scripts/ui_theme.gd`. Identificação consistente das ferramentas por pictogramas entre colchetes, seleção verde, aviso âmbar e bloqueio vermelho. Ajuda expansível no fim do painel. Requisito de área do objeto exposto ao lado do seletor.
-- Pausa, 1× e 2× operam a escala de tempo da simulação; Reiniciar volta a 1×. Nenhum formato de save ou mecânica de construção foi alterado.
-
-## Verificado
-
-- `bash tools/validate.sh`: **1.099 verificações, 0 falhas** (importação, testes e cena headless por 120 frames). Os três checks novos acionam Pausa, 1× e 2× pelos sinais dos botões. `git diff --check` passou.
-- Execução gráfica real no Godot `4.6.3.stable.official.7d41c59c4`, OpenGL Compatibility em Xvfb/Mesa llvmpipe. Capturas após frames renderizados: `16`–`21` em 1280×720 e `16` em 1920×1080, em `docs/screenshots/`. Estados preparados com a cena e os sistemas reais: inicial, blueprint de objeto, obra com progresso, tarefa inacessível, objeto selecionado e ajuda rolada.
-- Imagens inspecionadas por visão: mapa e engenheiro visíveis, painéis sem sobreposição do mapa, texto português legível, progresso e motivo de bloqueio visíveis com rolagem, controles de tempo e save ao alcance.
-
-## Limitações e próximo acabamento
-
-- Inspeção de imagem e eventos sintéticos não substituem teste manual de cliques, foco, leitura em monitor físico e fluidez de pausa/aceleração; continuam pendentes.
-- A velocidade da interface não é parte do save; carregar mantém a velocidade da sessão. O painel esquerdo ainda exige rolagem para autorizar, cancelar e reiniciar em 1280×720. Ícones de texto dispensam assets mas podem receber desenho vetorial próprio numa entrega futura.
-
-## Histórico — entrega 08: atalho Esc
-
-## Base e mudança
-
-- Base confirmada: `feat/essential-objects`, commit `34f038cb11b6238ef6a3408ab96313f018c92d41`; `AGENTS.md` lido. Branch: `feat/escape-selection-shortcut`, sem merge na `main`.
-- Esc volta ao modo Selecionar a partir de Planejar, Demolir, Porta, Área ou Objeto e limpa a seleção do engenheiro e da célula. Blueprints, fila e trabalho em andamento continuam intactos. A ajuda no painel e o README descrevem o atalho.
+- Branch `feat/character-visuals`; integra a base local `c0f71a1` com o trabalho remoto de personagens e Classe-D `f1fbd6a`, preservando ambos sem merge na `main`. `AGENTS.md` lido antes das alterações.
+- HUD em duas áreas: ferramentas, tempo, save, mensagens, trabalho e ações num painel rolável à esquerda; inspeção persistente de célula, porta, objeto, engenheiro e Classe-D à direita. Câmera inicial deslocada para manter as 24 colunas do mapa livres em 1280×720.
+- Paleta, espaçamentos e estilos centralizados em `scripts/ui_theme.gd`; pictogramas textuais consistentes, seleção verde, aviso âmbar e bloqueio vermelho. Ajuda expansível e requisito de área do objeto exposto.
+- Pausa, 1× e 2× operam a escala de tempo. Reiniciar volta a 1×. Mecânicas e formato de save preservados.
 
 ## Verificado e pendente
 
-- `bash tools/validate.sh`: **1.096 verificações, 0 falhas**; importação e execução headless da cena concluídas. O teste novo envia `InputEventKey` pelo viewport nos cinco modos, também com botão da interface focado, e verifica seleção limpa e obra preservada.
-- Cena executada graficamente em Xvfb/Mesa llvmpipe, OpenGL Compatibility, 1280×720. A captura `15-escape-help-1280x720.png` foi feita após frames renderizados e inspecionada: instrução de Esc legível no painel rolado, mapa inteiro visível e sem sobreposição.
-- Interação humana com teclado e monitor físico ainda pendente; o atalho foi acionado por evento sintético nos testes e na captura.
+- `bash tools/validate.sh`: **1.424 verificações, 0 falhas**; importação e cena por 120 frames concluídas. Todos os cenários de Classe-D, objetos, construção, demolição, save e Esc permaneceram na suíte. Três checks acionam os controles de tempo.
+- Capturas reais em Xvfb/Mesa Compatibility após renderização, em `docs/screenshots/`: estados 16–22 em 1280×720 e estado 16 em 1920×1080. Imagens inspecionadas por visão: mapa inteiro, engenheiro, Classe-D, ferramenta ativa, progresso, motivo de bloqueio, objeto selecionado, alertas, ajuda e rolagem legíveis; painéis não cobrem células.
+- Testes manuais de cliques, foco, leitura em monitor físico e fluidez de pausa/aceleração permanecem pendentes. O painel esquerdo requer rolagem para autorizar, cancelar e reiniciar em 1280×720. A velocidade da interface não integra o save.
 
-## Histórico — entrega 07: objetos essenciais
+## Histórico — entrega 09: personagens e animação visual
+
+
+## Implementado
+
+- Base `feat/classd-basic-needs` em `4eb6c2677cf9ed0e3f80448c1a3daee7b1ae1843`; branch de trabalho `feat/character-visuals`, sem merge na `main`.
+- `CharacterVisual` separa desenho e animação da lógica. Engenheiro e Classe-D usam silhueta comum com uniformes, acessórios e cores próprios. Direção segue deslocamento ortogonal; passos, trabalho, alimentação e descanso recebem movimento leve no Godot, sem assets externos.
+- Seleção e progresso permanecem nos nós originais. Reinício e carga sincronizam a pose com a posição restaurada; nenhum dado visual entra no esquema de save.
+
+## Validação
+
+- Godot 4.6.3 oficial: `bash tools/validate.sh` com `GODOT_BIN` local passou em **1.414 verificações, 0 falhas**; importação e execução da cena por 120 frames concluídas.
+- Xvfb/Mesa Compatibility: cinco capturas reais 1280×720 (`15`–`19`) regeneradas e inspecionadas. Engenheiro e Classe-D permanecem distinguíveis no zoom normal; seleção, uso de objeto e HUD continuam legíveis. Inspeção humana de movimento no monitor físico permanece pendente.
+
+## Limite visual
+
+- Esta entrega trata somente as duas pessoas existentes. Mapa, objetos e interface continuam provisórios; o salto visual do cenário exige uma próxima fatia específica após a aceitação manual.
+
+# Histórico — entrega 08: Classe-D e necessidades básicas
+
+## Base e implementação
+
+- Base confirmada: `feat/essential-objects`, commit `34f038cb11b6238ef6a3408ab96313f018c92d41`; `AGENTS.md` lido antes de editar. Branch `feat/classd-basic-needs`, criada diretamente dessa base, sem merge na `main`.
+- Um único Classe-D 001 (`classd-001`), quadrado laranja, separado do engenheiro dourado em `(5, 7)`. Seleção exclusiva por clique e seção População/Alertas no topo; nome, estado, destino, fome, descanso, necessidade, impedimento e progresso de uso. Rota e destino laranja no mapa; controles de engenharia preservados por rolagem em 1280×720.
+- Fome/descanso 0–100, inicial 100, limiar 35, decaimento 0,12/0,08 ponto por segundo simulado. Velocidade 96 px/s, escala de tempo 1, refeição 8 s e descanso 12 s; parâmetros centralizados em `settings.gd`. Prioriza a menor necessidade urgente; se inacessível, pode atender a outra urgente mantendo o alerta.
+- Reutiliza navegação ortogonal e pontos de interação da grade. Busca objeto disponível com ponto livre acessível, reserva por identificador durante viagem/uso e só recupera no centro exato do ponto adjacente, sem ocupar o objeto. Recuperação linear até 100 ao longo da duração; a outra necessidade continua decaindo. Permanece imóvel durante uso e só depois busca nova ação.
+- Reservas em índice simples célula → identificador. Conclusão, cancelamento, bloqueio, remoção, reinício e substituição do cenário na carga liberam reservas anteriores. Carga reconstrói só a reserva da ação validada, sem sinais intermediários. Alterações de paredes/portas/objetos invalidam rotas afetadas; termina o trecho seguro ou retorna pelo mesmo segmento sem teleporte. Engenharia protege as duas pontas ocupadas pelo Classe-D e não fecha portas sobre pessoas.
+- Alertas exatos de falta de cama/distribuidor, acompanhados de causa identificável: inexistente, ocupado/reservado, ponto ocupado, porta fechada ou rota bloqueada. Reavaliação ao mudar grade, ocupação do engenheiro ou disponibilidade; somem ao resolver. Diagnóstico de porta usa cópia da grade, sem mutação da grade real.
+- Save esquema 4 preserva identidade, necessidades, estado, posição exata, rota/destino, reserva e progresso/valor inicial do uso. Saves válidos 1, 2 e 3 migram com um Classe-D inicial em célula livre separada, incluindo alternativa à origem bloqueada. Repetir carga substitui estado sem duplicar pessoa, reserva ou recuperação.
+
+## Validação executada
+
+- `bash tools/validate.sh`: **1.414 verificações, 0 falhas**, com as 1.089 anteriores preservadas; importação e cena principal por 120 frames concluídas sem erros. `git diff --check` passou.
+- `tests/classd_tests.gd` exercita atendimento de descanso/fome, prioridade, decaimento e ociosidade; recuperação só após chegada; uso gradual imóvel; reservas de outro identificador; falta dos dois recursos; único ponto ocupado; sala inacessível; porta fechada, abertura, fechamento em rota e retomada; mudanças de parede/objeto sem teleporte; cancelamento, remoção durante uso e reinício.
+- Save/load executado em arquivo isolado durante deslocamento até Cama e durante uso de Cama e Distribuidor. Posição, rota, necessidades e progresso restaurados exatamente; carga repetida conserva um único NPC e uma única reserva, limpa reserva anterior espúria, não emite sinal intermediário nem soma recuperação. Migração de três esquemas e rejeição atômica de identidade, necessidade, posição, reserva/progresso e população duplicada inválidos.
+- A primeira execução dos testes novos encontrou atribuição de array sem tipo na rota de cancelamento. Corrigida com operações no array tipado; os cenários de porta, parede, objeto e cancelamento passaram na repetição completa.
+- Verificação gráfica **real**, com Xvfb `:100`, tela 1280×720, OpenGL 4.5 Compatibility, Mesa 25.0.7 llvmpipe (LLVM 19.1.7). Xvfb foi baixado do espelho Debian e extraído temporariamente em `/tmp/site-director-xvfb/`; Mesa/ImageMagick já estavam disponíveis. Não foi usado headless como validação gráfica.
+- Cinco PNGs 1280×720 produzidos após frames renderizados e inspecionados por ferramenta de visão: `15-classd-idle`, `16-classd-alert`, `17-classd-to-bed`, `18-classd-using`, `19-classd-panel`, em `docs/screenshots/`. Cama/Distribuidor são instalados pela fila do engenheiro no roteiro visual. Mapa inteiro, áreas/objetos, duas pessoas, rota/destino, uso e alertas legíveis; rolagem mantém ações e Salvar/Carregar acessíveis.
+- Reprodução: inicie Xvfb em `:100` com `-screen 0 1280x720x24 -nolisten tcp`; execute `DISPLAY=:100 LIBGL_ALWAYS_SOFTWARE=1 SITE_DIRECTOR_CAPTURE_CLASSD=1 SITE_DIRECTOR_CAPTURE_WIDTH=1280 SITE_DIRECTOR_CAPTURE_HEIGHT=720 bash tools/godot.sh --audio-driver Dummy --resolution 1280x720 --position 0,0 --script res://tools/visual_smoke.gd`.
+
+## Limites
+
+- Estados gráficos preparados programaticamente pelos sistemas reais; cliques/rolagem sintéticos passam pelo viewport nos testes. Interação humana, animação percebida e monitor/driver físico continuam pendentes.
+- Apenas um Classe-D e um engenheiro; reservas por identificador preparam exclusividade futura, sem sistema geral de população. Não há morte, fuga, motim, escolta, dinheiro, XP, turnos, experimentos ou pesquisa. Mesa/Assento preservam sua função atual de objeto físico.
+- Persistência manual e um slot. Configuração de tempo/necessidades é feita em `settings.gd`. Interromper uso conserva os pontos já recuperados, libera a reserva e descarta o progresso da ação interrompida; uma nova ação usa sua duração completa.
+
+# Histórico — entrega 07: objetos essenciais
 
 ## Base e implementação
 
