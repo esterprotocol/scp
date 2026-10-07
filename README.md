@@ -4,6 +4,12 @@ Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.
 
 O revamp da interface foi integrado à branch `feat/character-visuals`, preservando personagens e rotina Classe-D já existentes nessa branch. Sem merge automático na `main`.
 
+## Usabilidade das interações
+
+Entrega na branch `feat/interaction-usability`. Clique no engenheiro abre sua inspeção com Mover destacado, sem emitir ordem. Pressione Mover e indique piso com esquerdo, ou use o direito existente. Objetos e portas expõem ações contextuais. Ferramentas mostram prévia e causa de bloqueio. Esc limpa seleção e ferramenta, preservando rotas e obras. Classe-D continua autônomo, com motivo para Mover indisponível.
+
+Relatório ação do jogador → resposta do jogo, resultados, capturas 23–26 e roteiro manual pendente em [docs/PROGRESS.md](docs/PROGRESS.md). Validação automatizada: 1.429 checks, zero falhas. Validação humana de cada fluxo permanece pendente.
+
 ## Personagens e animação
 
 `scripts/character_visual.gd` desenha corpo, uniforme e acessórios em camadas: capacete, colete e ferramenta do engenheiro; roupa e faixa de identificação do Classe-D. A direção acompanha o deslocamento ortogonal. Passos, trabalho, alimentação e descanso têm pequenos movimentos visuais; a seleção e o progresso continuam representados pelos indicadores existentes.

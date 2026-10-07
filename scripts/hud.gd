@@ -1,6 +1,9 @@
 class_name SiteHUD
 extends CanvasLayer
 
+signal move_requested
+signal inspect_demolish_requested
+signal inspect_cancel_requested
 signal restart_requested
 signal save_requested
 signal load_requested
@@ -17,6 +20,11 @@ signal cancel_active_requested
 signal cancel_all_requested
 signal speed_requested(speed: float)
 
+var move_button: Button
+var move_reason: Label
+var inspect_demolish_button: Button
+var inspect_cancel_button: Button
+var preview_label: Label
 var population_label: Label
 var alerts_label: Label
 var selection_label: Label
@@ -92,6 +100,8 @@ func _ready() -> void:
 	message_label = add_label(box, "", 13, SiteUITheme.WARNING)
 	message_label.custom_minimum_size.y = 54
 	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_label = add_label(box, "", 12, SiteUITheme.ACCENT)
+	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	section(box, "FERRAMENTAS")
 	var tools := GridContainer.new()
 	tools.columns = 2
@@ -161,8 +171,14 @@ func _ready() -> void:
 	cell_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toggle_door_button = add_button(inspection, "Abrir/fechar porta", func() -> void: toggle_door_requested.emit())
 	toggle_door_button.disabled = true
+	inspect_demolish_button = add_button(inspection, "Solicitar demolição", func() -> void: inspect_demolish_requested.emit())
+	inspect_cancel_button = add_button(inspection, "Cancelar obra desta célula", func() -> void: inspect_cancel_requested.emit())
 	section(inspection, "EQUIPE / 01")
 	selection_label = add_label(inspection, "Selecionado: nenhum", 13)
+	move_button = add_button(inspection, "Mover · escolher destino", func() -> void: move_requested.emit(), SiteUITheme.ACCENT)
+	move_button.toggle_mode = true
+	move_reason = add_label(inspection, "", 12, SiteUITheme.MUTED)
+	move_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	state_label = add_label(inspection, "", 13)
 	state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	destination_label = add_label(inspection, "", 13)
@@ -260,6 +276,7 @@ func refresh_availability(kind: int) -> void:
 
 func refresh_cell(grid: GridState, cell: Vector2i) -> void:
 	if not grid.contains(cell):
+		toggle_door_button.visible = false
 		cell_label.text = "Célula: nenhuma"
 		toggle_door_button.disabled = true
 		return
@@ -272,6 +289,7 @@ func refresh_cell(grid: GridState, cell: Vector2i) -> void:
 		cell_label.text += "\nInteração: " + (", ".join(points) if not points.is_empty() else "nenhuma")
 		if grid.reservations.has(cell):
 			cell_label.text += "\nReserva: " + str(grid.reservations[cell])
+	toggle_door_button.visible = grid.doors.has(cell)
 	toggle_door_button.disabled = not grid.doors.has(cell)
 	toggle_door_button.text = "Fechar porta" if grid.doors.get(cell, false) else "Abrir porta"
 
@@ -309,6 +327,11 @@ func refresh_population(person: ClassD) -> void:
 	alerts_label.add_theme_color_override("font_color", SiteUITheme.MUTED if person.alerts.is_empty() else SiteUITheme.DANGER)
 
 func refresh_selection(worker: Engineer, person: ClassD) -> void:
+	move_button.visible = worker.selected or person.selected
+	move_reason.visible = move_button.visible
+	move_button.disabled = person.selected or worker.construction_busy
+	move_button.tooltip_text = "Classe-D se move automaticamente." if person.selected else "Cancele a tarefa para liberar o engenheiro." if worker.construction_busy else "Escolha o destino no mapa. Clique direito também move."
+	move_reason.text = move_button.tooltip_text
 	if person.selected:
 		selection_label.text = "Selecionado: " + ClassD.NAME
 		state_label.text = "Estado: " + person.state

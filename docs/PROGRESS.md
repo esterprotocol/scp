@@ -1,3 +1,42 @@
+# Entrega — usabilidade das interações
+
+Branch `feat/interaction-usability`, baseada em `feat/character-visuals`, sem merge na main. AGENTS.md lido. Alteração preexistente em project.godot preservada e excluída do commit.
+
+## Ação do jogador → resposta do jogo
+
+- Clicar no engenheiro → seleção exclusiva, painel automaticamente no topo e Mover destacado; nenhuma ordem emitida.
+- Pressionar Mover → modo Mover visível; esquerdo em piso indica destino. Direito continua sendo o atalho direto. Clicar em outra pessoa, objeto ou porta troca a inspeção.
+- Indicar destino bloqueado/inacessível → mensagem explica a causa; rota anterior preservada.
+- Clicar no Classe-D → seleção exclusiva, estado/necessidades no painel; Mover desabilitado explica a rotina automática existente.
+- Clicar em objeto → tipo, área, pontos de interação e Solicitar demolição aparecem. Porta → Abrir/Fechar porta, com as proteções existentes.
+- Selecionar parede/objeto com obra → Cancelar obra desta célula aparece; cancela apenas trabalho incompleto.
+- Ativar Parede, Demolir, Porta, Área ou Objeto → ferramenta destacada e instrução visível. Passar cursor no mapa → prévia verde/vermelha e motivo de recusa conforme regras existentes. Prévia não emite ordens. Segurança/acesso da obra continuam revalidados pela fila após autorização; prévia de alvo permitido não garante execução imediata.
+- Esquerdo em construção → planeja ou solicita conforme ferramenta; direito → cancela blueprint/tarefa da célula. Pintura por arraste preservada.
+- Esc em qualquer ferramenta, escolha de destino ou seleção, inclusive com botão focado → Selecionar, limpa ambas as pessoas/célula e encerra arraste; mantém rotas já emitidas, obras e blueprints.
+- Salvar/Carregar → formato e regras existentes preservados; escolha de destino é estado transitório e não integra o save.
+
+## Resultados reais
+
+- Godot oficial 4.6.3 baixado em /tmp: instalado localmente era 4.7.2. Wrapper preservado.
+- `GODOT_BIN=/tmp/godot463/Godot_v4.6.3-stable_linux.x86_64 bash tools/validate.sh`: 1.429 verificações, zero falhas; importação e cena por 120 frames. `git diff --check` aprovado.
+- Execução gráfica no display local com Compatibility, Mesa llvmpipe: capturas 23–26 em docs/screenshots, 1280×720, extraídas do viewport após renderização. ImageMagick falhou; não foram utilizadas imagens headless. Painéis inspecionados por visão.
+- Reprodução: `GODOT_BIN=/tmp/godot463/Godot_v4.6.3-stable_linux.x86_64 LIBGL_ALWAYS_SOFTWARE=1 SITE_DIRECTOR_CAPTURE_UX=1 SITE_DIRECTOR_CAPTURE_WIDTH=1280 SITE_DIRECTOR_CAPTURE_HEIGHT=720 bash tools/godot.sh --audio-driver Dummy --resolution 1280x720 --position 0,0 --script res://tools/visual_smoke.gd`.
+- Validação manual humana de cada fluxo solicitada pelo usuário **pendente**. Capturas preparadas por script e testes sintéticos não equivalem a jogar manualmente. Não há aprovação manual declarada.
+
+## Decisões para avaliação
+
+- Mover do Classe-D permanece indisponível para preservar autonomia e evitar nova mecânica.
+- Clique esquerdo escolhe destino somente após pressionar Mover; seleção inicial destaca a ação e mantém piso para desselecionar.
+- Escolha de destino permanece ativa após emitir uma ordem, permitindo redirecionar; Esc sai sem parar a rota.
+- Inspeção de objetos/portas tem prioridade sobre destino pelo esquerdo; direito pode tentar qualquer destino e retorna a causa de bloqueio.
+
+## Roteiro manual pendente
+
+Executar cada linha ação → resposta acima no jogo, incluindo engenheiro em obra, destino inacessível, redirecionamento entre centros, cada ferramenta com alvo válido/inválido, cancelamento durante deslocamento/trabalho, fechamento ocupado, foco de botões e Esc, pintura com Esc durante arraste e save/load durante movimento/obra. Avaliar destaque, leitura e necessidade de rolagem em 1280×720.
+
+
+# Histórico
+
 # Progresso — revamp visual do HUD
 
 ## Implementado

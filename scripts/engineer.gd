@@ -94,10 +94,9 @@ func _on_grid_changed() -> void:
 			return
 
 func _set_destination(goal: Vector2i) -> String:
-	if not grid.contains(goal):
-		return "Destino inválido: fora do mapa."
-	if not grid.is_walkable(goal):
-		return "Destino inválido: há uma parede nessa célula."
+	var reason := destination_reason(goal, false)
+	if not reason.is_empty():
+		return reason
 	# Finish the current orthogonal segment before replanning. This prevents
 	# diagonal shortcuts when a new order arrives between cell centers.
 	var anchor := cell if route.is_empty() else route[0]
@@ -132,3 +131,15 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if selected:
 		draw_arc(Vector2.ZERO, 14, 0, TAU, 32, Color("64e6b6"), 2.0, true)
+
+func destination_reason(goal: Vector2i, check_busy: bool = true) -> String:
+	if check_busy and construction_busy:
+		return "Ordem recusada: engenheiro em obra. Cancele a tarefa para liberá-lo."
+	if not grid.contains(goal):
+		return "Destino inválido: fora do mapa."
+	if not grid.is_walkable(goal):
+		return "Destino inválido: célula ocupada por parede, porta fechada ou objeto."
+	var anchor := cell if route.is_empty() else route[0]
+	if GridNavigation.find_path(grid, anchor, goal).is_empty():
+		return "Destino inacessível: não há caminho até essa célula."
+	return ""

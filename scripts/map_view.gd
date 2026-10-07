@@ -6,6 +6,8 @@ var classd: ClassD
 var engineer: Engineer
 var construction: Construction
 var selected_cell := Vector2i(-1, -1)
+var preview_active := false
+var preview_valid := false
 var hovered := Vector2i(-1, -1)
 
 func _process(_delta: float) -> void:
@@ -91,7 +93,9 @@ func _draw() -> void:
 		if classd.state in [ClassD.MOVING, ClassD.USING]:
 			draw_arc(grid.center(classd.destination), 11, 0, TAU, 24, Color("ff9955"), 2, true)
 	if grid.contains(hovered):
-		var color := Color("64e6b6") if grid.is_walkable(hovered) else Color("f2867f")
+		var color := Color("64e6b6") if (preview_valid if preview_active else grid.is_walkable(hovered)) else Color("f2867f")
+		if preview_active:
+			draw_rect(Rect2(Vector2(hovered) * size, Vector2.ONE * size).grow(-3), Color(color, 0.25))
 		draw_rect(Rect2(Vector2(hovered) * size, Vector2.ONE * size).grow(-1), color, false, 2)
 	if grid.contains(selected_cell):
 		draw_rect(Rect2(Vector2(selected_cell) * size, Vector2.ONE * size).grow(-2), Color("ffffff"), false, 2)

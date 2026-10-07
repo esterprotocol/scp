@@ -7,6 +7,7 @@ var map_view := MapView.new()
 var camera := SiteCamera.new()
 var hud := SiteHUD.new()
 var construction := Construction.new()
+var choosing_destination := false
 var planning := false
 var demolishing := false
 var installing_door := false
@@ -34,6 +35,9 @@ func _ready() -> void:
 	add_child(camera)
 	camera.reset()
 	add_child(hud)
+	hud.move_requested.connect(begin_move)
+	hud.inspect_demolish_requested.connect(func() -> void: hud.show_message(construction.request_demolition(selected_cell)))
+	hud.inspect_cancel_requested.connect(func() -> void: hud.show_message(construction.cancel(selected_cell)))
 	hud.restart_requested.connect(reset_scenario)
 	hud.save_requested.connect(func() -> void: hud.show_message(save_slot.save_game(self)))
 	hud.load_requested.connect(func() -> void: hud.show_message(save_slot.load_game(self)))
@@ -104,6 +108,7 @@ func _on_grid_changed() -> void:
 	hud.refresh_cell(grid, selected_cell)
 
 func set_planning(value: bool) -> void:
+	choosing_destination = false
 	area_drag_active = false
 	planning = value
 	demolishing = false
@@ -114,6 +119,7 @@ func set_planning(value: bool) -> void:
 	hud.show_message("Planejar: clique esquerdo marca; clique direito cancela blueprint/tarefa." if value else "Modo Selecionar: selecione o engenheiro para mover.")
 
 func set_demolishing() -> void:
+	choosing_destination = false
 	area_drag_active = false
 	planning = false
 	demolishing = true
@@ -124,6 +130,7 @@ func set_demolishing() -> void:
 	hud.show_message("Demolir: clique esquerdo solicita; clique direito cancela a tarefa. A parede só desaparece ao concluir.")
 
 func set_door_mode() -> void:
+	choosing_destination = false
 	area_drag_active = false
 	planning = false
 	demolishing = false
@@ -134,6 +141,7 @@ func set_door_mode() -> void:
 	hud.show_message("Porta: clique esquerdo solicita instalação em parede; direito cancela tarefa.")
 
 func set_area_mode() -> void:
+	choosing_destination = false
 	area_drag_active = false
 	planning = false
 	demolishing = false
@@ -144,6 +152,7 @@ func set_area_mode() -> void:
 	hud.show_message("Área: selecione o tipo e pinte células transitáveis com o botão esquerdo.")
 
 func set_object_mode() -> void:
+	choosing_destination = false
 	area_drag_active = false
 	planning = false
 	demolishing = false
@@ -154,6 +163,7 @@ func set_object_mode() -> void:
 	hud.show_message("Objeto: escolha o tipo, clique esquerdo planeja; direito cancela blueprint ou obra.")
 
 func select_cell(cell: Vector2i) -> void:
+	hud.inspection_scroll.scroll_vertical = 0
 	selected_cell = cell if grid.contains(cell) else Vector2i(-1, -1)
 	map_view.selected_cell = selected_cell
 	map_view.queue_redraw()
@@ -180,16 +190,19 @@ func paint_area(cell: Vector2i) -> void:
 		hud.show_message("Área exige uma célula transitável.")
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		choosing_destination = false
+		classd.set_selected(false)
+		engineer.set_selected(false)
+		select_cell(Vector2i(-1, -1))
+		set_planning(false)
+		get_viewport().gui_release_focus()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		area_drag_active = false
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		engineer.set_selected(false)
-		select_cell(Vector2i(-1, -1))
-		set_planning(false)
-		get_viewport().set_input_as_handled()
-		return
 	if painting_area and area_drag_active and event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
 		var point: Vector2 = get_canvas_transform().affine_inverse() * event.position
 		paint_area(grid.to_cell(point))
@@ -227,12 +240,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				hud.show_message(construction.cancel(grid.to_cell(point)))
 			return
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			if choosing_destination and engineer.selected and not grid.objects.has(cell) and not grid.doors.has(cell) and not grid.walls.has(cell) and point.distance_to(engineer.position) > GameSettings.SELECTION_RADIUS and point.distance_to(classd.position) > GameSettings.SELECTION_RADIUS:
+				hud.show_message(engineer.move_to(cell))
+				return
+			choosing_destination = false
 			select_cell(cell)
 			classd.set_selected(false)
-			if point.distance_to(classd.position) <= 15.0 and point.distance_to(classd.position) < point.distance_to(engineer.position):
+			if point.distance_to(classd.position) <= GameSettings.SELECTION_RADIUS and point.distance_to(classd.position) < point.distance_to(engineer.position):
 				engineer.set_selected(false)
 				classd.set_selected(true)
+				hud.inspection_scroll.scroll_vertical = 0
 				hud.show_message("Classe-D 001 selecionado. Necessidades atendidas automaticamente.")
+			elif point.distance_to(engineer.position) <= GameSettings.SELECTION_RADIUS:
+				engineer.set_selected(true)
+				hud.inspection_scroll.scroll_vertical = 0
+				hud.show_message("Engenheiro selecionado. Use Mover para escolher destino ou clique direito no mapa.")
 			elif grid.doors.has(cell):
 				engineer.set_selected(false)
 				hud.show_message("Porta aberta. Use Fechar porta." if grid.doors[cell] else "Porta fechada. Use Abrir porta.")
@@ -240,10 +262,46 @@ func _unhandled_input(event: InputEvent) -> void:
 				engineer.set_selected(false)
 				hud.show_message("%s selecionado. Pontos de interação no painel." % GridState.OBJECT_NAMES[grid.objects[cell]])
 			else:
-				engineer.set_selected(point.distance_to(engineer.position) <= 15.0)
+				engineer.set_selected(point.distance_to(engineer.position) <= GameSettings.SELECTION_RADIUS)
 				hud.show_message("Engenheiro selecionado. Clique direito para mover." if engineer.selected else "Célula selecionada.")
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			if engineer.selected:
 				hud.show_message(engineer.move_to(grid.to_cell(point)))
 			else:
 				hud.show_message("Selecione o engenheiro antes de dar uma ordem.")
+
+func begin_move() -> void:
+	if not engineer.selected or engineer.construction_busy:
+		hud.show_message("Mover indisponível: selecione um engenheiro livre de obra.")
+		return
+	set_planning(false)
+	choosing_destination = true
+	hud.move_button.set_pressed_no_signal(true)
+	hud.mode_label.text = "MODO / MOVER · ESC CANCELA"
+	hud.inspection_scroll.scroll_vertical = 0
+	hud.show_message("Mover: indique o destino com esquerdo ou direito. Esc limpa seleção; rota atual continua.")
+
+func _process(_delta: float) -> void:
+	hud.move_button.set_pressed_no_signal(choosing_destination or (engineer.selected and not engineer.construction_busy and not (planning or demolishing or installing_door or painting_area or placing_object)))
+	hud.inspect_demolish_button.visible = grid.walls.has(selected_cell) or grid.doors.has(selected_cell) or grid.objects.has(selected_cell)
+	hud.inspect_cancel_button.visible = construction.tasks.has(selected_cell) or construction.blueprints.has(selected_cell) or construction.object_blueprints.has(selected_cell)
+	var cell := map_view.hovered
+	var reason := ""
+	var action := ""
+	if planning or demolishing or installing_door or placing_object:
+		action = Construction.BUILD_OBJECT if placing_object else Construction.INSTALL_DOOR if installing_door else Construction.DEMOLISH_OBJECT if demolishing and grid.objects.has(cell) else Construction.DEMOLISH if demolishing else Construction.BUILD
+		reason = construction.target_reason(cell, action, true, object_type if placing_object else int(grid.objects.get(cell, 0)))
+		if reason.is_empty() and (construction.tasks.has(cell) or (not demolishing and not installing_door and (construction.blueprints.has(cell) or construction.object_blueprints.has(cell)))):
+			reason = "Já existe blueprint ou tarefa nessa célula."
+	elif painting_area:
+		action = "Área " + GridState.AREA_NAMES[area_type]
+		reason = "Área exige célula transitável." if not grid.is_walkable(cell) else ""
+	elif choosing_destination:
+		action = "Mover"
+		reason = engineer.destination_reason(cell)
+	if get_viewport().gui_get_hovered_control() != null:
+		action = ""
+	map_view.preview_active = not action.is_empty()
+	map_view.preview_valid = reason.is_empty()
+	hud.preview_label.text = "" if action.is_empty() else "%s (%d, %d) → %s" % [action, cell.x, cell.y, "Permitido" if reason.is_empty() else reason]
+	hud.preview_label.add_theme_color_override("font_color", SiteUITheme.ACCENT if reason.is_empty() else SiteUITheme.DANGER)

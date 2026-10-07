@@ -17,6 +17,11 @@ func settle() -> void:
 func capture(name: String, width: int, height: int) -> void:
 	await settle()
 	var output := OUTPUT + "%s-%dx%d.png" % [name, width, height]
+	if OS.get_environment("SITE_DIRECTOR_CAPTURE_UX") == "1":
+		var rendered := root.get_texture().get_image()
+		if rendered.save_png(output) != OK:
+			quit(1)
+		return
 	# Capture actual display pixels after OpenGL presents frames on Xvfb.
 	var command_output: Array = []
 	var error := OS.execute("import", PackedStringArray(["-window", "root", ProjectSettings.globalize_path(output)]), command_output, true)
@@ -43,6 +48,26 @@ func run() -> void:
 	game.classd.set_process(false)
 	game.engineer.set_process(false)
 	game.construction.set_process(false)
+	if OS.get_environment("SITE_DIRECTOR_CAPTURE_UX") == "1":
+		game.engineer.set_selected(true)
+		game.begin_move()
+		Input.warp_mouse(game.get_canvas_transform() * game.grid.center(Vector2i(7, 5)))
+		await shot("23-ux-move", width, height)
+		game.set_object_mode()
+		await shot("24-ux-preview", width, height)
+		game.set_planning(false)
+		game.grid.set_area(Vector2i(6, 5), 1)
+		game.grid.add_object(Vector2i(6, 5), 1)
+		game.engineer.set_selected(false)
+		game.select_cell(Vector2i(6, 5))
+		await shot("25-ux-object", width, height)
+		game.classd.set_selected(true)
+		game.hud.refresh_selection(game.engineer, game.classd)
+		await shot("26-ux-autonomous", width, height)
+		game.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_environment("SITE_DIRECTOR_CAPTURE_REVAMP") == "1":
 		await shot("16-revamp-initial", width, height)
 		game.set_object_mode()
