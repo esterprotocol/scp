@@ -1,8 +1,14 @@
 # Site Director
 
-Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas, objetos instalados, Classe-D com fome/descanso e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
+Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas, objetos instalados, Classe-D com fome/descanso e um slot manual de salvar/carregar. Engenheiro e Classe-D têm personagens estilizados com animação leve desenhada no Godot. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega atual está na branch `feat/classd-basic-needs`, criada da base verificada `feat/essential-objects`, commit `34f038cb11b6238ef6a3408ab96313f018c92d41`. Sem merge automático na `main`.
+A entrega visual está na branch `feat/character-visuals`, baseada em `feat/classd-basic-needs`, commit `4eb6c2677cf9ed0e3f80448c1a3daee7b1ae1843`. Sem merge automático na `main`.
+
+## Personagens e animação
+
+`scripts/character_visual.gd` desenha corpo, uniforme e acessórios em camadas: capacete, colete e ferramenta do engenheiro; roupa e faixa de identificação do Classe-D. A direção acompanha o deslocamento ortogonal. Passos, trabalho, alimentação e descanso têm pequenos movimentos visuais; a seleção e o progresso continuam representados pelos indicadores existentes.
+
+A apresentação é independente da navegação, da rotina e do save. Carregar ou reiniciar realinha a pose sem alterar posição ou estado persistido. Esta é a primeira fatia de personagens; paredes, pisos, objetos e interface ainda usam o desenho provisório.
 
 ## Executar
 

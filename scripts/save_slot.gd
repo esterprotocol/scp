@@ -299,6 +299,8 @@ func apply(game: Node2D, state: Dictionary) -> void:
 	worker.construction_busy = state.worker.busy
 	worker.working = state.worker.working
 	worker.work_action = state.worker.action
+	if worker.visual != null:
+		worker.visual.reset_pose(worker.position)
 	game.camera.position = state.camera_position
 	game.camera.zoom = Vector2.ONE * state.zoom
 	game.area_type = state.area_type
@@ -470,6 +472,8 @@ func apply_classd(person: ClassD, state: Dictionary) -> void:
 	person.impediment = state.impediment
 	person.alerts = PackedStringArray(state.alerts)
 	person.dirty = state.dirty
+	if person.visual != null:
+		person.visual.reset_pose(person.position)
 	if person.reserved_object != ClassD.NONE:
 		# Rebuild the transient index without intermediate simulation signals.
 		person.grid.reservations[person.reserved_object] = ClassD.ID

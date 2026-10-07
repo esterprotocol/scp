@@ -1,4 +1,21 @@
-# Progresso — entrega 08: Classe-D e necessidades básicas
+# Progresso — entrega 09: personagens e animação visual
+
+## Implementado
+
+- Base `feat/classd-basic-needs` em `4eb6c2677cf9ed0e3f80448c1a3daee7b1ae1843`; branch de trabalho `feat/character-visuals`, sem merge na `main`.
+- `CharacterVisual` separa desenho e animação da lógica. Engenheiro e Classe-D usam silhueta comum com uniformes, acessórios e cores próprios. Direção segue deslocamento ortogonal; passos, trabalho, alimentação e descanso recebem movimento leve no Godot, sem assets externos.
+- Seleção e progresso permanecem nos nós originais. Reinício e carga sincronizam a pose com a posição restaurada; nenhum dado visual entra no esquema de save.
+
+## Validação
+
+- Godot 4.6.3 oficial: `bash tools/validate.sh` com `GODOT_BIN` local passou em **1.414 verificações, 0 falhas**; importação e execução da cena por 120 frames concluídas.
+- Xvfb/Mesa Compatibility: cinco capturas reais 1280×720 (`15`–`19`) regeneradas e inspecionadas. Engenheiro e Classe-D permanecem distinguíveis no zoom normal; seleção, uso de objeto e HUD continuam legíveis. Inspeção humana de movimento no monitor físico permanece pendente.
+
+## Limite visual
+
+- Esta entrega trata somente as duas pessoas existentes. Mapa, objetos e interface continuam provisórios; o salto visual do cenário exige uma próxima fatia específica após a aceitação manual.
+
+# Histórico — entrega 08: Classe-D e necessidades básicas
 
 ## Base e implementação
 

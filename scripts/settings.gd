@@ -27,3 +27,7 @@ const CLASSD_HUNGER_DECAY := 0.12 # Points per simulated second.
 const CLASSD_REST_DECAY := 0.08
 const CLASSD_MEAL_SECONDS := 8.0
 const CLASSD_REST_SECONDS := 12.0
+const CHARACTER_WALK_RATE := 11.0
+const CHARACTER_WORK_RATE := 9.0
+const CHARACTER_IDLE_RATE := 2.5
+const CHARACTER_STEP := 1.5

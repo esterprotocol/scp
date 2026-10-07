@@ -29,6 +29,13 @@ var use_initial := 0.0
 var impediment := ""
 var alerts: PackedStringArray = []
 var dirty := true
+var visual: CharacterVisual
+
+func _ready() -> void:
+	visual = CharacterVisual.new()
+	visual.role = "classd"
+	add_child(visual)
+	visual.reset_pose(position)
 
 func setup(state_grid: GridState, worker: Engineer) -> void:
 	grid = state_grid
@@ -55,6 +62,8 @@ func reset() -> void:
 	impediment = ""
 	alerts.clear()
 	dirty = true
+	if visual != null:
+		visual.reset_pose(position)
 	queue_redraw()
 	changed.emit()
 	occupation_changed.emit()
@@ -262,13 +271,15 @@ func _process(delta: float) -> void:
 	var next := cell if route.is_empty() else route[0]
 	if previous_cell != cell or previous_next != next:
 		occupation_changed.emit()
+	if visual != null:
+		var activity := "walk" if state in [MOVING, STOPPING] and not route.is_empty() else "idle"
+		if state == USING:
+			activity = "eat" if need == "Fome" else "rest"
+		visual.tick(delta, position, activity)
 	changed.emit()
 
 func _draw() -> void:
 	if selected:
 		draw_arc(Vector2.ZERO, 15, 0, TAU, 32, Color("ff9955"), 2.0, true)
-	draw_rect(Rect2(-9, -9, 18, 18), Color("ee763c"))
-	draw_circle(Vector2(0, -4), 5, Color("f7d9bd"))
-	draw_line(Vector2(-5, 5), Vector2(5, 5), Color("472e32"), 3)
 	if state == USING:
 		draw_arc(Vector2.ZERO, 12, -PI / 2, -PI / 2 + TAU * use_elapsed / use_seconds(), 32, Color("a4d3ff"), 2.0, true)
