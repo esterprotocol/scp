@@ -160,6 +160,12 @@ func _input(event: InputEvent) -> void:
 		area_drag_active = false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		engineer.set_selected(false)
+		select_cell(Vector2i(-1, -1))
+		set_planning(false)
+		get_viewport().set_input_as_handled()
+		return
 	if painting_area and area_drag_active and event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
 		var point: Vector2 = get_canvas_transform().affine_inverse() * event.position
 		paint_area(grid.to_cell(point))

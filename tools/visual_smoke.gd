@@ -42,6 +42,30 @@ func run() -> void:
 	root.add_child(game)
 	game.engineer.set_process(false)
 	game.construction.set_process(false)
+	if OS.get_environment("SITE_DIRECTOR_CAPTURE_ESCAPE") == "1":
+		game.grid.set_area(Vector2i(6, 5), 1)
+		game.construction.plan_object(Vector2i(6, 5), 1)
+		game.construction.authorize()
+		game.set_object_mode()
+		game.engineer.set_selected(true)
+		game.select_cell(Vector2i(6, 5))
+		var escape := InputEventKey.new()
+		escape.keycode = KEY_ESCAPE
+		escape.pressed = true
+		root.push_input(escape, true)
+		if not game.hud.select_button.button_pressed or game.engineer.selected or not game.construction.tasks.has(Vector2i(6, 5)):
+			printerr("Escape did not restore selection mode while preserving work.")
+			quit(1)
+			return
+		var escape_scroll: ScrollContainer = game.hud.get_child(0).get_child(0)
+		await process_frame
+		await process_frame
+		escape_scroll.scroll_vertical = int(escape_scroll.get_v_scroll_bar().max_value)
+		await shot("15-escape-help", width, height)
+		game.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_environment("SITE_DIRECTOR_CAPTURE_OBJECTS") == "1":
 		game.grid.set_area(Vector2i(6, 5), 1)
 		game.grid.set_area(Vector2i(6, 6), 1)

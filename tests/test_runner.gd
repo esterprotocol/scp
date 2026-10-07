@@ -135,6 +135,33 @@ func run() -> void:
 	await SaveTests.new().run(self, game)
 	await DoorAreaTests.new().run(self, game)
 	await ObjectTests.new().run(self, game)
+	# Escape exits tools through the viewport without canceling queued work.
+	game.grid.set_area(Vector2i(6, 5), 1)
+	game.construction.plan_object(Vector2i(6, 5), 1)
+	game.construction.authorize()
+	for mode in ["plan", "demolish", "door", "area", "object"]:
+		match mode:
+			"plan": game.set_planning(true)
+			"demolish": game.set_demolishing()
+			"door": game.set_door_mode()
+			"area": game.set_area_mode()
+			"object": game.set_object_mode()
+		engineer.set_selected(true)
+		game.select_cell(Vector2i(6, 5))
+		var escape := InputEventKey.new()
+		escape.keycode = KEY_ESCAPE
+		escape.pressed = true
+		root.push_input(escape, true)
+		check(game.hud.select_button.button_pressed and not engineer.selected and game.selected_cell == Vector2i(-1, -1), "Escape returns from %s and clears selection" % mode)
+	game.set_object_mode()
+	game.hud.object_button.grab_focus()
+	var focused_escape := InputEventKey.new()
+	focused_escape.keycode = KEY_ESCAPE
+	focused_escape.pressed = true
+	root.push_input(focused_escape, true)
+	check(game.hud.select_button.button_pressed, "Escape exits tool with GUI button focused")
+	game.hud.object_button.release_focus()
+	check(game.construction.tasks.has(Vector2i(6, 5)) and game.construction.object_blueprints.has(Vector2i(6, 5)), "Escape keeps queued work and blueprint")
 	game.queue_free()
 	await process_frame
 	print("RESULT: %d checks, %d failures" % [checks, failures])

@@ -1,4 +1,17 @@
-# Progresso — entrega 07: objetos essenciais
+# Progresso — entrega 08: atalho Esc
+
+## Base e mudança
+
+- Base confirmada: `feat/essential-objects`, commit `34f038cb11b6238ef6a3408ab96313f018c92d41`; `AGENTS.md` lido. Branch: `feat/escape-selection-shortcut`, sem merge na `main`.
+- Esc volta ao modo Selecionar a partir de Planejar, Demolir, Porta, Área ou Objeto e limpa a seleção do engenheiro e da célula. Blueprints, fila e trabalho em andamento continuam intactos. A ajuda no painel e o README descrevem o atalho.
+
+## Verificado e pendente
+
+- `bash tools/validate.sh`: **1.096 verificações, 0 falhas**; importação e execução headless da cena concluídas. O teste novo envia `InputEventKey` pelo viewport nos cinco modos, também com botão da interface focado, e verifica seleção limpa e obra preservada.
+- Cena executada graficamente em Xvfb/Mesa llvmpipe, OpenGL Compatibility, 1280×720. A captura `15-escape-help-1280x720.png` foi feita após frames renderizados e inspecionada: instrução de Esc legível no painel rolado, mapa inteiro visível e sem sobreposição.
+- Interação humana com teclado e monitor físico ainda pendente; o atalho foi acionado por evento sintético nos testes e na captura.
+
+## Histórico — entrega 07: objetos essenciais
 
 ## Base e implementação
 

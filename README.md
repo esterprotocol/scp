@@ -2,7 +2,7 @@
 
 Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas, objetos instalados e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega atual está na branch `feat/essential-objects`, criada da base verificada `feat/doors-and-zones`, commit `8a717dc`. Sem merge automático na `main`.
+A entrega atual está na branch `feat/escape-selection-shortcut`, criada da base verificada `feat/essential-objects`, commit `34f038c`. Sem merge automático na `main`.
 
 ## Executar
 
@@ -27,6 +27,7 @@ bash tools/godot.sh
 | Entrada | Ação |
 | --- | --- |
 | Botão “Selecionar” | Ativar controles de seleção e movimento |
+| Esc | Voltar ao modo Selecionar e limpar a seleção de engenheiro/célula; obras e blueprints continuam |
 | Botão esquerdo sobre o engenheiro, no modo Selecionar | Selecionar |
 | Botão esquerdo sobre o chão, no modo Selecionar | Desselecionar |
 | Botão direito, com engenheiro selecionado, no modo Selecionar | Mover; durante uma obra a ordem é recusada com explicação |
@@ -156,7 +157,7 @@ Cobertura de portas/áreas em `tests/door_area_tests.gd`: instalação parcial e
 
 Cobertura de objetos em `tests/object_tests.gd`: compatibilidade dos quatro tipos com suas áreas, blueprint transitável, objeto sólido e interação adjacente, instalação/demolição física, cancelamento em trânsito/trabalho, proteção da saída e do último ponto de interação, revalidação após mudança de área, fila com tarefa bloqueada, rotas combinando porta e objeto, save/load parcial/repetido e migração dos esquemas 1 e 2.
 
-Validação atual: **1.089 verificações, 0 falhas** com `bash tools/validate.sh`. A cena foi executada graficamente em Xvfb com Mesa llvmpipe e renderizador Compatibility; as cinco capturas novas `10`–`14` em `docs/screenshots/` mostram blueprint, instalação, objeto concluído, demolição, progresso e bloqueio por área em 1280×720. As imagens foram inspecionadas; o roteiro manual abaixo continua pendente, sem alegação de cliques humanos ou teste em monitor físico.
+Validação atual: **1.096 verificações, 0 falhas** com `bash tools/validate.sh`. A cena foi executada graficamente em Xvfb com Mesa llvmpipe e renderizador Compatibility; a captura `15-escape-help-1280x720.png` mostra a ajuda do novo atalho legível no painel rolado, com o mapa inteiro visível. O roteiro manual abaixo continua pendente, sem alegação de cliques humanos ou teste em monitor físico.
 
 ## Teste manual visual (pendente)
 
@@ -187,6 +188,7 @@ Validação atual: **1.089 verificações, 0 falhas** com `bash tools/validate.s
 25. Pinte uma célula como Alojamento e três como Refeitório. No modo Objeto, planeje uma Cama na primeira e Mesa, Assento e Distribuidor nas outras. Confira a recusa de tipos na área errada, blueprint transitável e objeto concluído sólido após deslocamento/trabalho adjacente.
 26. Selecione um objeto concluído e confira tipo, área e vizinhos de interação no painel. Demola o objeto e confirme que ele só libera a célula ao terminar. Tente bloquear o último vizinho com parede, objeto ou porta fechada: a ação deve ser recusada.
 27. Altere a área de um blueprint/tarefa, verifique motivo de bloqueio e outra obra avançando; restaure a área e confirme a retomada. Salve no meio da instalação e demolição de objeto, carregue duas vezes e confira posição/progresso e ausência de duplicação. Reinicie e confirme remoção dos objetos.
+28. Ative cada ferramenta, selecione o engenheiro ou uma célula e pressione Esc. Confira retorno ao modo Selecionar e seleção limpa, mantendo blueprints e tarefas na fila.
 
 ## Organização e limite de escopo
 
