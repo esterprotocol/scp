@@ -61,6 +61,12 @@ func run() -> void:
 	await process_frame
 	var engineer: Engineer = game.engineer
 	engineer.set_process(false)
+	game.hud.fast_button.pressed.emit()
+	check(Engine.time_scale == 2.0 and game.hud.fast_button.button_pressed, "2x control changes simulation speed")
+	game.hud.pause_button.pressed.emit()
+	check(Engine.time_scale == 0.0 and game.hud.pause_button.button_pressed, "pause control stops simulation time")
+	game.hud.normal_button.pressed.emit()
+	check(Engine.time_scale == 1.0 and game.hud.normal_button.button_pressed, "normal control resumes simulation time")
 	check(engineer.position == grid.center(GameSettings.SPAWN), "engineer spawns centered")
 	check(not engineer.selected, "starts unselected")
 	engineer.set_selected(true)

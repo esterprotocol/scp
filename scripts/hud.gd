@@ -15,6 +15,7 @@ signal object_type_requested(kind: int)
 signal authorize_requested
 signal cancel_active_requested
 signal cancel_all_requested
+signal speed_requested(speed: float)
 
 var selection_label: Label
 var state_label: Label
@@ -40,141 +41,208 @@ var task_label: Label
 var progress_bar: ProgressBar
 var blocked_label: Label
 var queue_label: Label
+var mode_label: Label
+var availability_label: Label
+var pause_button: Button
+var normal_button: Button
+var fast_button: Button
+var help_label: Label
+var inspection_panel: PanelContainer
+var current_speed := 1.0
 
 func _ready() -> void:
-	var panel := PanelContainer.new()
-	panel.position = Vector2(16, 16)
-	panel.custom_minimum_size = Vector2(256, 0)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("10212e")
-	style.border_color = Color("365365")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 18
-	style.content_margin_bottom = 18
-	panel.add_theme_stylebox_override("panel", style)
-	add_child(panel)
-	# Keep every action reachable even when blocked reasons grow or the window
-	# is small. A fixed-height scroll area avoids pushing reset below the screen.
+	var panel_root := PanelContainer.new()
+	panel_root.position = Vector2(12, 12)
+	panel_root.custom_minimum_size.x = 322
+	panel_root.add_theme_stylebox_override("panel", SiteUITheme.panel(SiteUITheme.BG, SiteUITheme.BORDER, 8, 10))
+	add_child(panel_root)
+	# The first child stays the scroll area so existing UI automation can reach it.
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(238, 800)
+	scroll.custom_minimum_size.x = 300
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(scroll)
+	panel_root.add_child(scroll)
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", SiteUITheme.SPACING)
 	scroll.add_child(box)
-	var title := add_label(box, "SITE DIRECTOR")
-	title.add_theme_font_size_override("font_size", 23)
-	title.add_theme_color_override("font_color", Color("64e6b6"))
-	add_label(box, "03 / OBRAS\nConstrução e demolição")
-	select_button = add_button(box, "Selecionar", func() -> void: mode_requested.emit(false))
-	plan_button = add_button(box, "Planejar parede", func() -> void: mode_requested.emit(true))
-	demolish_button = add_button(box, "Demolir", func() -> void: demolish_requested.emit())
-	door_button = add_button(box, "Porta", func() -> void: door_requested.emit())
-	area_button = add_button(box, "Área", func() -> void: area_requested.emit())
-	object_button = add_button(box, "Objeto", func() -> void: object_requested.emit())
-	select_button.toggle_mode = true
-	plan_button.toggle_mode = true
-	demolish_button.toggle_mode = true
-	door_button.toggle_mode = true
-	area_button.toggle_mode = true
-	object_button.toggle_mode = true
-	area_type = OptionButton.new()
-	for index in GridState.AREA_NAMES.size():
-		area_type.add_item(GridState.AREA_NAMES[index], index)
-	area_type.item_selected.connect(func(index: int) -> void: area_type_requested.emit(index))
-	box.add_child(area_type)
-	object_type = OptionButton.new()
-	for kind in range(1, GridState.OBJECT_NAMES.size()):
-		object_type.add_item(GridState.OBJECT_NAMES[kind], kind)
-	object_type.item_selected.connect(func(index: int) -> void: object_type_requested.emit(index + 1))
-	box.add_child(object_type)
-	box.add_child(HSeparator.new())
-	selection_label = add_label(box, "")
-	cell_label = add_label(box, "Célula: nenhuma")
-	cell_label.custom_minimum_size.x = 220
-	cell_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	toggle_door_button = add_button(box, "Abrir/fechar porta", func() -> void: toggle_door_requested.emit())
-	toggle_door_button.disabled = true
-	state_label = add_label(box, "")
-	destination_label = add_label(box, "")
-	task_label = add_label(box, "Tarefa atual: nenhuma")
-	task_label.custom_minimum_size.x = 220
-	task_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	progress_bar = ProgressBar.new()
-	progress_bar.custom_minimum_size.y = 22
-	box.add_child(progress_bar)
-	queue_label = add_label(box, "")
-	blocked_label = add_label(box, "")
-	blocked_label.custom_minimum_size.x = 220
-	blocked_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	blocked_label.add_theme_color_override("font_color", Color("f2867f"))
-	message_label = add_label(box, "")
-	message_label.custom_minimum_size = Vector2(220, 66)
-	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	message_label.add_theme_color_override("font_color", Color("e8b95c"))
-	authorize_button = add_button(box, "Autorizar planejados", func() -> void: authorize_requested.emit())
-	cancel_active_button = add_button(box, "Cancelar tarefa atual", func() -> void: cancel_active_requested.emit())
-	cancel_all_button = add_button(box, "Cancelar todas as obras", func() -> void: cancel_all_requested.emit())
-	restart_button = Button.new()
-	restart_button.text = "Reiniciar cenário"
-	restart_button.custom_minimum_size.y = 40
-	restart_button.pressed.connect(func() -> void: restart_requested.emit())
-	box.add_child(restart_button)
+	var title := add_label(box, "SITE DIRECTOR", 22, SiteUITheme.TEXT)
+	title.add_theme_color_override("font_color", SiteUITheme.ACCENT)
+	add_label(box, "INSTALAÇÃO / CONTROLE OPERACIONAL", 10, SiteUITheme.MUTED)
+	section(box, "TEMPO E ARQUIVO")
+	var time_row := HBoxContainer.new()
+	time_row.add_theme_constant_override("separation", 5)
+	box.add_child(time_row)
+	pause_button = add_button(time_row, "|| Pausa", func() -> void: speed_requested.emit(0.0))
+	normal_button = add_button(time_row, "1×", func() -> void: speed_requested.emit(1.0))
+	fast_button = add_button(time_row, "2×", func() -> void: speed_requested.emit(2.0))
+	for button: Button in [pause_button, normal_button, fast_button]:
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	set_speed(1.0)
 	var save_row := HBoxContainer.new()
+	save_row.add_theme_constant_override("separation", 5)
 	box.add_child(save_row)
 	save_button = add_button(save_row, "Salvar", func() -> void: save_requested.emit())
 	load_button = add_button(save_row, "Carregar", func() -> void: load_requested.emit())
 	save_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(HSeparator.new())
-	var controls_label := add_label(box, "CONTROLES\nSelecionar: esquerdo escolhe engenheiro, porta ou objeto; direito move.\nPlanejar/Objeto: esquerdo marca; direito cancela obra.\nDemolir/Porta: esquerdo solicita; direito cancela tarefa.\nÁrea: escolha tipo e pinte com esquerdo.\nEsc: volta a Selecionar e limpa a seleção.\nWASD / setas: câmera\nBotão central: arrastar\nRoda do mouse: zoom\n\nAzul: blueprint de parede\nContorno colorido cruzado: blueprint de objeto\nForma sólida: objeto instalado\nDourado: construção autorizada\nLaranja: demolição solicitada\nRoxo: porta/instalação\nVermelho: tarefa bloqueada\nCinza: parede concluída\nVerde: referência de saída\n\n24 × 24 · célula 32 px\nCoordenadas de 0 a 23")
-	controls_label.custom_minimum_size.x = 220
-	controls_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	get_viewport().size_changed.connect(func() -> void: scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0))
-	scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 68.0)
+	mode_label = add_label(box, "MODO / SELECIONAR", 12, SiteUITheme.ACCENT)
+	message_label = add_label(box, "", 13, SiteUITheme.WARNING)
+	message_label.custom_minimum_size.y = 54
+	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section(box, "FERRAMENTAS")
+	var tools := GridContainer.new()
+	tools.columns = 2
+	tools.add_theme_constant_override("h_separation", 5)
+	tools.add_theme_constant_override("v_separation", 5)
+	box.add_child(tools)
+	select_button = tool(tools, "[o] Selecionar", func() -> void: mode_requested.emit(false))
+	plan_button = tool(tools, "[#] Parede", func() -> void: mode_requested.emit(true))
+	demolish_button = tool(tools, "[-] Demolir", func() -> void: demolish_requested.emit())
+	door_button = tool(tools, "[=] Porta", func() -> void: door_requested.emit())
+	area_button = tool(tools, "[:] Área", func() -> void: area_requested.emit())
+	object_button = tool(tools, "[+] Objeto", func() -> void: object_requested.emit())
+	add_label(box, "TIPO DE ÁREA", 10, SiteUITheme.MUTED)
+	area_type = OptionButton.new()
+	for index in GridState.AREA_NAMES.size():
+		area_type.add_item(GridState.AREA_NAMES[index], index)
+	area_type.item_selected.connect(func(index: int) -> void: area_type_requested.emit(index))
+	style_button(area_type)
+	box.add_child(area_type)
+	add_label(box, "OBJETO A INSTALAR", 10, SiteUITheme.MUTED)
+	object_type = OptionButton.new()
+	for kind in range(1, GridState.OBJECT_NAMES.size()):
+		object_type.add_item(GridState.OBJECT_NAMES[kind], kind)
+	object_type.item_selected.connect(func(index: int) -> void:
+		object_type_requested.emit(index + 1)
+		refresh_availability(index + 1))
+	style_button(object_type)
+	box.add_child(object_type)
+	availability_label = add_label(box, "", 12, SiteUITheme.MUTED)
+	availability_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	refresh_availability(1)
+	section(box, "TRABALHO E ALERTAS")
+	task_label = add_label(box, "Tarefa atual: nenhuma", 13)
+	task_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	progress_bar = ProgressBar.new()
+	progress_bar.custom_minimum_size.y = 18
+	progress_bar.show_percentage = false
+	progress_bar.add_theme_stylebox_override("background", SiteUITheme.button(SiteUITheme.SURFACE))
+	progress_bar.add_theme_stylebox_override("fill", SiteUITheme.button(SiteUITheme.ACCENT, SiteUITheme.ACCENT))
+	box.add_child(progress_bar)
+	queue_label = add_label(box, "", 12, SiteUITheme.MUTED)
+	blocked_label = add_label(box, "", 12, SiteUITheme.DANGER)
+	blocked_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	authorize_button = add_button(box, "Autorizar planejados", func() -> void: authorize_requested.emit(), SiteUITheme.ACCENT)
+	cancel_active_button = add_button(box, "Cancelar tarefa atual", func() -> void: cancel_active_requested.emit())
+	cancel_all_button = add_button(box, "Cancelar todas as obras", func() -> void: cancel_all_requested.emit())
+	section(box, "CENÁRIO")
+	restart_button = add_button(box, "Reiniciar cenário", func() -> void: restart_requested.emit(), SiteUITheme.WARNING)
+	var help_button := add_button(box, "Controles e legenda  ▾", func() -> void:
+		help_label.visible = not help_label.visible)
+	help_button.tooltip_text = "Mostrar ou ocultar os controles e a legenda do mapa."
+	help_label = add_label(box, "ESQUERDO  Seleciona ou aplica ferramenta\nDIREITO  Move ou cancela obra\nESC  Selecionar e limpar seleção\nWASD / SETAS  Deslocar câmera\nCENTRAL  Arrastar câmera\nRODA  Zoom\n\nAZUL  Blueprint\nDOURADO  Obra autorizada\nLARANJA  Demolição\nROXO  Porta\nVERMELHO  Bloqueio\nVERDE  Saída de referência", 12, SiteUITheme.MUTED)
+	help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help_label.visible = false
+	inspection_panel = PanelContainer.new()
+	inspection_panel.add_theme_stylebox_override("panel", SiteUITheme.panel(SiteUITheme.BG, SiteUITheme.BORDER, 8, 12))
+	add_child(inspection_panel)
+	var inspection := VBoxContainer.new()
+	inspection.add_theme_constant_override("separation", SiteUITheme.SPACING)
+	inspection_panel.add_child(inspection)
+	section(inspection, "INSPEÇÃO / CÉLULA")
+	cell_label = add_label(inspection, "Célula: nenhuma", 13)
+	cell_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toggle_door_button = add_button(inspection, "Abrir/fechar porta", func() -> void: toggle_door_requested.emit())
+	toggle_door_button.disabled = true
+	section(inspection, "EQUIPE / 01")
+	selection_label = add_label(inspection, "Selecionado: nenhum", 13)
+	state_label = add_label(inspection, "", 13)
+	state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	destination_label = add_label(inspection, "", 13)
+	get_viewport().size_changed.connect(func() -> void: resize_scroll(scroll))
+	resize_scroll(scroll)
 
-func add_button(parent: Node, text: String, action: Callable) -> Button:
+func resize_scroll(scroll: ScrollContainer) -> void:
+	scroll.custom_minimum_size.y = maxf(160.0, get_viewport().get_visible_rect().size.y - 46.0)
+	var width := get_viewport().get_visible_rect().size.x
+	inspection_panel.custom_minimum_size.x = 218.0 if width <= 1280.0 else 260.0
+	inspection_panel.position = Vector2(width - inspection_panel.custom_minimum_size.x - 12.0, 12.0)
+
+func section(parent: Node, title: String) -> void:
+	var heading := add_label(parent, title, 11, SiteUITheme.BLUE)
+	heading.add_theme_constant_override("line_spacing", 2)
+
+func add_label(parent: Node, value: String, size: int = 13, color: Color = SiteUITheme.TEXT) -> Label:
+	var label := Label.new()
+	label.text = value
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", color)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(label)
+	return label
+
+func style_button(button: BaseButton) -> void:
+	button.custom_minimum_size.y = 34
+	button.add_theme_color_override("font_color", SiteUITheme.TEXT)
+	button.add_theme_color_override("font_pressed_color", SiteUITheme.BG)
+	button.add_theme_color_override("font_hover_color", SiteUITheme.TEXT)
+	button.add_theme_color_override("font_disabled_color", SiteUITheme.MUTED)
+	button.add_theme_stylebox_override("normal", SiteUITheme.button())
+	button.add_theme_stylebox_override("hover", SiteUITheme.button(SiteUITheme.ELEVATED, SiteUITheme.ACCENT))
+	button.add_theme_stylebox_override("pressed", SiteUITheme.button(SiteUITheme.ACCENT, SiteUITheme.ACCENT))
+	button.add_theme_stylebox_override("hover_pressed", SiteUITheme.button(SiteUITheme.ACCENT, SiteUITheme.ACCENT))
+	button.add_theme_stylebox_override("disabled", SiteUITheme.button(SiteUITheme.BG))
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+func add_button(parent: Node, value: String, action: Callable, accent: Color = SiteUITheme.TEXT) -> Button:
 	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size.y = 32
+	button.text = value
+	style_button(button)
+	button.add_theme_color_override("font_color", accent)
 	button.pressed.connect(action)
 	parent.add_child(button)
 	return button
 
+func tool(parent: Node, value: String, action: Callable) -> Button:
+	var button := add_button(parent, value, action)
+	button.toggle_mode = true
+	button.custom_minimum_size.x = 141
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	return button
+
+func set_speed(value: float) -> void:
+	current_speed = value
+	pause_button.set_pressed_no_signal(value == 0.0)
+	normal_button.set_pressed_no_signal(value == 1.0)
+	fast_button.set_pressed_no_signal(value == 2.0)
+	for button: Button in [pause_button, normal_button, fast_button]:
+		button.toggle_mode = true
+
+func active_tool(button: Button, title: String) -> void:
+	for other: Button in [select_button, plan_button, demolish_button, door_button, area_button, object_button]:
+		other.set_pressed_no_signal(other == button)
+	mode_label.text = "MODO / " + title
+
 func set_planning(value: bool) -> void:
-	select_button.set_pressed_no_signal(not value)
-	plan_button.set_pressed_no_signal(value)
-	demolish_button.set_pressed_no_signal(false)
-	door_button.set_pressed_no_signal(false)
-	area_button.set_pressed_no_signal(false)
-	object_button.set_pressed_no_signal(false)
+	active_tool(plan_button if value else select_button, "PLANEJAR PAREDE" if value else "SELECIONAR")
 
 func set_demolishing() -> void:
-	select_button.set_pressed_no_signal(false)
-	plan_button.set_pressed_no_signal(false)
-	demolish_button.set_pressed_no_signal(true)
-	door_button.set_pressed_no_signal(false)
-	area_button.set_pressed_no_signal(false)
-	object_button.set_pressed_no_signal(false)
+	active_tool(demolish_button, "DEMOLIR")
 
 func set_door_mode() -> void:
-	set_planning(false)
-	select_button.set_pressed_no_signal(false)
-	door_button.set_pressed_no_signal(true)
+	active_tool(door_button, "PORTA")
 
 func set_area_mode() -> void:
-	set_planning(false)
-	select_button.set_pressed_no_signal(false)
-	area_button.set_pressed_no_signal(true)
+	active_tool(area_button, "DESIGNAR ÁREA")
 
 func set_object_mode() -> void:
-	set_planning(false)
-	select_button.set_pressed_no_signal(false)
-	object_button.set_pressed_no_signal(true)
+	active_tool(object_button, "INSTALAR OBJETO")
+
+func refresh_availability(kind: int) -> void:
+	if availability_label == null:
+		return
+	var area_name := "Alojamento" if kind == 1 else "Refeitório"
+	availability_label.text = "REQUISITO  %s · célula livre" % area_name
 
 func refresh_cell(grid: GridState, cell: Vector2i) -> void:
 	if not grid.contains(cell):
@@ -200,19 +268,16 @@ func refresh_construction(construction: Construction) -> void:
 	progress_bar.value = construction.progress() * 100.0
 	queue_label.text = "Blueprints: %d · Tarefas: %d" % [construction.blueprints.size() + construction.object_blueprints.size(), construction.tasks.size()]
 	blocked_label.text = construction.blocked_text()
-	blocked_label.add_theme_color_override("font_color", Color("f2867f") if blocked_label.text != "Nenhum bloqueio." else Color("b4c3cc"))
-
-func add_label(parent: Node, text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", 14)
-	parent.add_child(label)
-	return label
+	blocked_label.add_theme_color_override("font_color", SiteUITheme.DANGER if blocked_label.text != "Nenhum bloqueio." else SiteUITheme.MUTED)
 
 func refresh(engineer: Engineer) -> void:
 	selection_label.text = "Selecionado: " + ("Engenheiro 01" if engineer.selected else "nenhum")
 	state_label.text = "Estado: " + engineer.state_text()
 	destination_label.text = "Destino: (%d, %d)" % [engineer.destination.x, engineer.destination.y]
 
-func show_message(text: String) -> void:
-	message_label.text = text
+func show_message(value: String) -> void:
+	message_label.text = value
+	var lower := value.to_lower()
+	var warning := lower.contains("bloque") or lower.contains("inválid") or lower.contains("inacess") or lower.contains("não ") or lower.contains("erro") or lower.contains("falha") or lower.contains("recus")
+	var color := SiteUITheme.DANGER if warning else SiteUITheme.ACCENT if lower.contains("sucesso") else SiteUITheme.WARNING
+	message_label.add_theme_color_override("font_color", color)

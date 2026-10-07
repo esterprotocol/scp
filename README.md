@@ -2,7 +2,7 @@
 
 Jogo 2D de construção e gestão em **Godot 4.6.3 stable**, build oficial **`4.6.3.stable.official.7d41c59c4`**, com GDScript e renderizador **Compatibility**. O protótipo cobre mapa, câmera, seleção, movimentação, construção com saída segura, demolição física, portas operáveis, áreas designadas, objetos instalados e um slot manual de salvar/carregar. Sem assets externos, plugins ou dependências de jogo.
 
-A entrega atual está na branch `feat/escape-selection-shortcut`, criada da base verificada `feat/essential-objects`, commit `34f038c`. Sem merge automático na `main`.
+A entrega visual está na branch `feat/character-visuals`, criada da base verificada `feat/escape-selection-shortcut`, commit `c0f71a1`. Sem merge automático na `main`.
 
 ## Executar
 
@@ -55,8 +55,15 @@ bash tools/godot.sh
 | Botão “Reiniciar cenário” | Restaurar cenário original, grade, obras, modo, engenheiro, câmera e painel |
 | Botão “Salvar” | Substituir o slot manual pelo cenário atual |
 | Botão “Carregar” | Substituir o cenário atual pelo slot validado |
+| Botões “Pausa”, “1×” e “2×” | Pausar ou alterar a velocidade da simulação; Reiniciar volta a 1× |
 
-O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints de parede são contornos cruzados **azuis** antes da autorização, **dourados** após autorização e **vermelhos** quando bloqueados. Blueprints de objeto usam contorno cruzado na cor do tipo; o objeto concluído é uma forma sólida. Todos os blueprints permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; o alvo continua no lugar durante o trabalho. Portas e instalações são **roxas** quando fechadas/em obra, com traço horizontal; portas abertas são **ciano**, com traço lateral. Áreas usam cores suaves: Alojamento azul, Refeitório verde, Contenção violeta. Um pequeno contorno verde marca a saída de referência. O painel mostra seleção, área, objeto, interação, estado da porta, destino, ação, alvo, progresso e motivos de bloqueio. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
+O engenheiro é dourado, paredes são cinza e a rota/seleção são verdes. Blueprints de parede são contornos cruzados **azuis** antes da autorização, **dourados** após autorização e **vermelhos** quando bloqueados. Blueprints de objeto usam contorno cruzado na cor do tipo; o objeto concluído é uma forma sólida. Todos os blueprints permanecem transitáveis até a conclusão. Demolições são marcadas por círculo e risco **laranja**, ou vermelho quando bloqueadas; o alvo continua no lugar durante o trabalho. Portas e instalações são **roxas** quando fechadas/em obra, com traço horizontal; portas abertas são **ciano**, com traço lateral. Áreas usam cores suaves: Alojamento azul, Refeitório verde, Contenção violeta. Um pequeno contorno verde marca a saída de referência. O painel esquerdo mostra ferramenta ativa, ação, progresso, mensagens e motivos de bloqueio; o painel direito mostra seleção, área, objeto, interação, estado da porta e destino. Use a rolagem do painel para acessar as ações caso o conteúdo exceda a janela. Cliques na interface não dão ordens nem solicitam tarefas no mapa.
+
+## Interface operacional
+
+O HUD usa uma paleta escura institucional com alertas âmbar e bloqueios vermelhos. Os seis botões de ferramenta usam pictogramas de texto no mesmo formato; a ferramenta ativa recebe preenchimento verde. O requisito de área do objeto selecionado aparece sob o seletor. O painel de inspeção à direita mantém dados de célula, objeto, porta e engenheiro visíveis enquanto o painel esquerdo rola. A ajuda e a legenda podem ser expandidas no fim do painel. As formas e cores são originais do projeto, sem assets externos.
+
+Pausa, 1× e 2× controlam `Engine.time_scale`. Reiniciar volta a 1×; o slot manual continua salvando o mundo e a ferramenta, mas não a velocidade da interface. Ao carregar, a velocidade escolhida na sessão continua ativa.
 
 ## Regras do protótipo
 
@@ -111,7 +118,7 @@ Se a área mudar após o planejamento, a tarefa é revalidada antes de começar 
 
 ## Salvar e carregar
 
-Use os botões **Salvar** e **Carregar**, abaixo de Reiniciar no painel (role se necessário). O painel mostra sucesso ou o motivo da falha. Existe apenas um slot manual; salvar novamente o substitui. Não há autosave. **Reiniciar não apaga o arquivo**, e carregar posteriormente recupera o cenário salvo.
+Use os botões **Salvar** e **Carregar** no topo do painel esquerdo. O painel mostra sucesso ou o motivo da falha. Existe apenas um slot manual; salvar novamente o substitui. Não há autosave. **Reiniciar não apaga o arquivo**, e carregar posteriormente recupera o cenário salvo.
 
 O arquivo é **`user://site_director.json`**. O caminho absoluto pode ser consultado com `OS.get_user_data_dir()` no Godot. Com `bash tools/godot.sh`, fica em **`.tools/data/godot/app_userdata/Site Director/site_director.json`**, dentro do repositório, em diretório ignorado pelo Git. Com o editor direto no Linux, o padrão é `~/.local/share/godot/app_userdata/Site Director/site_director.json`; outros sistemas usam o diretório de dados de usuário do Godot. O wrapper e o editor direto podem, portanto, usar arquivos diferentes.
 
@@ -189,9 +196,11 @@ Validação atual: **1.096 verificações, 0 falhas** com `bash tools/validate.s
 26. Selecione um objeto concluído e confira tipo, área e vizinhos de interação no painel. Demola o objeto e confirme que ele só libera a célula ao terminar. Tente bloquear o último vizinho com parede, objeto ou porta fechada: a ação deve ser recusada.
 27. Altere a área de um blueprint/tarefa, verifique motivo de bloqueio e outra obra avançando; restaure a área e confirme a retomada. Salve no meio da instalação e demolição de objeto, carregue duas vezes e confira posição/progresso e ausência de duplicação. Reinicie e confirme remoção dos objetos.
 28. Ative cada ferramenta, selecione o engenheiro ou uma célula e pressione Esc. Confira retorno ao modo Selecionar e seleção limpa, mantendo blueprints e tarefas na fila.
+29. Em 1280×720, confira o mapa inteiro entre os dois painéis, o destaque da ferramenta ativa, mensagens vermelhas de bloqueio, o painel de objeto com interação e o alcance das ações pela rolagem. Abra a ajuda e role até o fim. Repita em 1920×1080.
+30. Durante um deslocamento ou trabalho, pressione Pausa e confirme que a posição/progresso não mudam. Retome em 1× e experimente 2×; Reiniciar deve repor 1×.
 
 ## Organização e limite de escopo
 
-`grid_state.gd`: paredes, portas, áreas e objetos independentes; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção, demolição e instalação; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
+`grid_state.gd`: paredes, portas, áreas e objetos independentes; `navigation.gd`: busca de rotas reais/hipotéticas; `engineer.gd`: personagem, movimento e invalidação de rotas; `construction.gd`: coordenação única de construção, demolição e instalação; `save_slot.gd`: captura, JSON, validação, gravação e restauração; `map_view.gd`: desenho; `site_camera.gd`: câmera; `hud.gd`: interface; `ui_theme.gd`: paleta, espaçamentos e estilos; `main.gd`: composição e comandos. A cena fica em `scenes/main.tscn`.
 
 Classe-D, uso automático dos objetos, necessidades, economia, SCPs, combate, autosave e múltiplos trabalhadores não fazem parte desta entrega. Veja `docs/PROGRESS.md` para o estado da validação e a próxima tarefa.

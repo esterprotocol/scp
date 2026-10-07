@@ -32,6 +32,7 @@ func _ready() -> void:
 	hud.restart_requested.connect(reset_scenario)
 	hud.save_requested.connect(func() -> void: hud.show_message(save_slot.save_game(self)))
 	hud.load_requested.connect(func() -> void: hud.show_message(save_slot.load_game(self)))
+	hud.speed_requested.connect(set_simulation_speed)
 	hud.mode_requested.connect(set_planning)
 	hud.demolish_requested.connect(set_demolishing)
 	hud.door_requested.connect(set_door_mode)
@@ -49,6 +50,7 @@ func _ready() -> void:
 	reset_scenario()
 
 func reset_scenario() -> void:
+	set_simulation_speed(1.0)
 	construction.reset()
 	grid.reset()
 	engineer.reset()
@@ -65,6 +67,13 @@ func reset_scenario() -> void:
 	hud.refresh(engineer)
 	hud.refresh_construction(construction)
 	hud.show_message("Selecione o engenheiro dourado para dar uma ordem.")
+
+func set_simulation_speed(speed: float) -> void:
+	Engine.time_scale = speed
+	hud.set_speed(speed)
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
 
 func _on_engineer_changed() -> void:
 	hud.refresh(engineer)

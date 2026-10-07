@@ -1,4 +1,24 @@
-# Progresso — entrega 08: atalho Esc
+# Progresso — revamp visual do HUD
+
+## Implementado
+
+- Base confirmada antes das alterações: `feat/escape-selection-shortcut`, commit `c0f71a1bf73c8df0754f831b1b8c466fc1dc70c0`; `AGENTS.md` lido. Branch `feat/character-visuals`, sem merge na `main`.
+- HUD refeito em duas áreas: ferramentas, tempo, save, mensagens, trabalho e ações num painel rolável à esquerda; inspeção persistente de célula, porta, objeto e engenheiro à direita. Câmera inicial deslocada para manter as 24 colunas do mapa livres em 1280×720.
+- Paleta, espaçamentos e estilos de botões/painéis centralizados em `scripts/ui_theme.gd`. Identificação consistente das ferramentas por pictogramas entre colchetes, seleção verde, aviso âmbar e bloqueio vermelho. Ajuda expansível no fim do painel. Requisito de área do objeto exposto ao lado do seletor.
+- Pausa, 1× e 2× operam a escala de tempo da simulação; Reiniciar volta a 1×. Nenhum formato de save ou mecânica de construção foi alterado.
+
+## Verificado
+
+- `bash tools/validate.sh`: **1.099 verificações, 0 falhas** (importação, testes e cena headless por 120 frames). Os três checks novos acionam Pausa, 1× e 2× pelos sinais dos botões. `git diff --check` passou.
+- Execução gráfica real no Godot `4.6.3.stable.official.7d41c59c4`, OpenGL Compatibility em Xvfb/Mesa llvmpipe. Capturas após frames renderizados: `16`–`21` em 1280×720 e `16` em 1920×1080, em `docs/screenshots/`. Estados preparados com a cena e os sistemas reais: inicial, blueprint de objeto, obra com progresso, tarefa inacessível, objeto selecionado e ajuda rolada.
+- Imagens inspecionadas por visão: mapa e engenheiro visíveis, painéis sem sobreposição do mapa, texto português legível, progresso e motivo de bloqueio visíveis com rolagem, controles de tempo e save ao alcance.
+
+## Limitações e próximo acabamento
+
+- Inspeção de imagem e eventos sintéticos não substituem teste manual de cliques, foco, leitura em monitor físico e fluidez de pausa/aceleração; continuam pendentes.
+- A velocidade da interface não é parte do save; carregar mantém a velocidade da sessão. O painel esquerdo ainda exige rolagem para autorizar, cancelar e reiniciar em 1280×720. Ícones de texto dispensam assets mas podem receber desenho vetorial próprio numa entrega futura.
+
+## Histórico — entrega 08: atalho Esc
 
 ## Base e mudança
 
